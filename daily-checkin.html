@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Macaron Habit Tracker</title>
+    <title>Macaron Habit Tracker v2</title>
     <!-- 引入手写风格字体 -->
     <link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap" rel="stylesheet">
     <style>
@@ -15,21 +15,21 @@
             --primary-pink: #FFDEE9;
             --status-green: #B5EAD7; /* 马卡龙绿 - 完成 */
             --status-purple: #E0BBE4; /* 马卡龙紫 - 部分 */
-            --status-empty: #e0e0e0;
+            --status-empty: #eaeaea; /* 稍微深一点的灰，增加对比度 */
             --shadow: 4px 4px 0px rgba(93, 64, 55, 0.1);
         }
 
         * {
             box-sizing: border-box;
             user-select: none;
+            -webkit-tap-highlight-color: transparent; /* 移除手机点击高亮 */
         }
 
         body {
             margin: 0;
-            padding: 20px;
-            font-family: 'Patrick Hand', cursive; /* 手写字体 */
+            padding: 10px; /* 减少边缘留白 */
+            font-family: 'Patrick Hand', cursive;
             color: var(--text-color);
-            /* 核心背景样式 */
             background-color: var(--bg-pink);
             background-image:
               linear-gradient(var(--grid-line) 1px, transparent 1px),
@@ -40,60 +40,55 @@
             min-height: 100vh;
         }
 
-        /* 主容器：适配 Notion 窄栏 */
+        /* 主容器 */
         .app-container {
             width: 100%;
-            max-width: 400px;
+            max-width: 420px; /* 稍微加宽一点点以适应双栏 */
             background: var(--card-bg);
-            border-radius: 25px;
-            padding: 20px;
-            box-shadow: 8px 8px 0px rgba(93, 64, 55, 0.05);
+            border-radius: 20px;
+            padding: 15px;
+            box-shadow: 6px 6px 0px rgba(93, 64, 55, 0.05);
             border: 2px solid #fff;
             display: flex;
             flex-direction: column;
-            gap: 20px;
+            gap: 15px;
         }
 
-        h2, h3 {
-            margin: 0;
-            text-align: center;
-            font-weight: normal;
-        }
+        h2, h3 { margin: 0; text-align: center; font-weight: normal; }
+        h2 { font-size: 1.4rem; margin-bottom: 5px; }
+        h3 { font-size: 1rem; opacity: 0.8; margin-bottom: 8px; }
 
-        h2 { font-size: 1.5rem; margin-bottom: 5px; }
-        h3 { font-size: 1.1rem; opacity: 0.8; margin-bottom: 10px; }
-
-        /* --- 模块 A: 心情选择 --- */
+        /* --- 心情模块 --- */
         .mood-section {
             display: flex;
-            justify-content: space-around;
-            padding-bottom: 15px;
+            justify-content: center;
+            gap: 15px;
+            padding-bottom: 10px;
             border-bottom: 2px dashed var(--primary-pink);
         }
 
         .mood-btn {
-            font-size: 24px;
+            font-size: 22px;
             cursor: pointer;
             transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             background: none;
             border: none;
             opacity: 0.5;
             filter: grayscale(0.5);
+            padding: 0;
         }
-
         .mood-btn:hover { opacity: 0.8; }
-        
         .mood-btn.active {
             opacity: 1;
             filter: grayscale(0);
-            transform: scale(1.4);
+            transform: scale(1.3);
         }
 
-        /* --- 模块 A: 习惯清单 --- */
+        /* --- 习惯清单 (双栏布局) --- */
         .habit-list {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
+            display: grid;
+            grid-template-columns: 1fr 1fr; /* 两列等宽 */
+            gap: 10px; /* 间距 */
         }
 
         .habit-item {
@@ -101,27 +96,33 @@
             align-items: center;
             justify-content: space-between;
             background: white;
-            padding: 10px 15px;
-            border-radius: 15px;
-            box-shadow: 2px 2px 5px rgba(0,0,0,0.03);
+            padding: 8px 10px; /* 减小内边距 */
+            border-radius: 12px;
+            box-shadow: 2px 2px 4px rgba(0,0,0,0.02);
             cursor: pointer;
             transition: all 0.2s;
+            font-size: 0.95rem; /* 字体调小 */
         }
 
-        .habit-item:hover {
-            transform: translateY(-2px);
+        .habit-item:hover { transform: translateY(-2px); }
+
+        /* 习惯文本截断处理，防止换行 */
+        .habit-text {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
-        /* 自定义 Checkbox */
         .custom-checkbox {
-            width: 24px;
-            height: 24px;
+            width: 18px; /* 调小复选框 */
+            height: 18px;
             border: 2px solid var(--primary-pink);
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
             transition: background 0.3s;
+            flex-shrink: 0; /* 防止被压缩 */
         }
 
         .habit-item.checked .custom-checkbox {
@@ -129,94 +130,67 @@
             border-color: var(--status-green);
         }
 
-        .habit-item.checked span {
+        .habit-item.checked .habit-text {
             text-decoration: line-through;
             opacity: 0.6;
         }
 
-        .check-icon {
-            color: white;
-            font-size: 14px;
-            display: none;
-        }
-
+        .check-icon { color: white; font-size: 10px; display: none; }
         .habit-item.checked .check-icon { display: block; }
 
-        /* --- 模块 B: 本周概览 --- */
+        /* --- 本周概览 --- */
         .weekly-stripe {
             display: flex;
             justify-content: space-between;
             background: rgba(255, 255, 255, 0.6);
-            padding: 10px;
-            border-radius: 15px;
+            padding: 8px 12px;
+            border-radius: 12px;
         }
 
-        .day-column {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 5px;
-        }
+        .day-column { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+        .day-label { font-size: 0.7rem; color: #999; }
+        .day-dot { width: 10px; height: 10px; border-radius: 50%; background-color: var(--status-empty); transition: background-color 0.3s; }
 
-        .day-label {
-            font-size: 0.8rem;
-            color: #999;
-        }
-
-        .day-dot {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            background-color: var(--status-empty);
-            transition: background-color 0.3s;
-        }
-
-        /* --- 模块 C: 热力图 --- */
+        /* --- 热力图 (180天 迷你版) --- */
         .heatmap-container {
             background: white;
-            padding: 15px;
+            padding: 12px;
             border-radius: 15px;
             text-align: center;
         }
 
         .heatmap-grid {
             display: grid;
-            grid-template-columns: repeat(7, 1fr); /* 7列 */
-            gap: 6px;
-            margin-top: 10px;
-            justify-items: center;
+            /* 自动填充，每个格子最小10px */
+            grid-template-columns: repeat(auto-fit, minmax(10px, 1fr)); 
+            gap: 3px; /* 极小的间距 */
+            margin-top: 8px;
+            justify-content: center;
         }
 
         .heat-cell {
-            width: 100%; /* 自适应宽度 */
-            padding-bottom: 100%; /* 保持正方形 */
-            position: relative; 
-            border-radius: 4px;
+            aspect-ratio: 1/1; /* 保持正方形 */
+            border-radius: 2px;
             background-color: var(--status-empty);
+            transition: background-color 0.2s;
         }
         
-        .heat-cell-inner {
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            border-radius: 6px;
-            transition: background-color 0.3s;
-        }
-
-        /* 状态颜色类 */
+        /* 状态颜色 */
         .status-full { background-color: var(--status-green) !important; }
         .status-part { background-color: var(--status-purple) !important; }
         .status-none { background-color: var(--status-empty); }
 
-        /* 简单的图例 */
+        /* 图例 */
         .legend {
             display: flex;
             justify-content: center;
-            gap: 15px;
-            margin-top: 10px;
-            font-size: 0.8rem;
+            gap: 12px;
+            margin-top: 8px;
+            font-size: 0.75rem;
+            color: #888;
         }
-        .legend-item { display: flex; align-items: center; gap: 5px; }
-        .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+        .legend-item { display: flex; align-items: center; gap: 4px; }
+        .legend-dot { width: 8px; height: 8px; border-radius: 50%; }
 
     </style>
 </head>
@@ -226,70 +200,74 @@
     <!-- 顶部：日期与心情 -->
     <div>
         <h2 id="current-date">Today</h2>
-        <div class="mood-section" id="mood-container">
-            <!-- JS 生成表情 -->
-        </div>
+        <div class="mood-section" id="mood-container"></div>
     </div>
 
-    <!-- 中部：习惯清单 -->
-    <div class="habit-list" id="habit-list">
-        <!-- JS 生成习惯 -->
-    </div>
+    <!-- 中部：习惯清单 (双栏) -->
+    <div class="habit-list" id="habit-list"></div>
 
     <!-- 底部：本周概览 -->
     <div>
-        <h3>Past 7 Days</h3>
-        <div class="weekly-stripe" id="weekly-stripe">
-            <!-- JS 生成点 -->
-        </div>
+        <h3>Weekly Overview</h3>
+        <div class="weekly-stripe" id="weekly-stripe"></div>
     </div>
 
-    <!-- 底部：热力图 -->
+    <!-- 底部：180天热力图 -->
     <div class="heatmap-container">
-        <h3>Habit Log (30 Days)</h3>
-        <div class="heatmap-grid" id="heatmap-grid">
-            <!-- JS 生成格子 -->
-        </div>
+        <h3>180 Days Journey</h3>
+        <div class="heatmap-grid" id="heatmap-grid"></div>
         <div class="legend">
             <div class="legend-item"><div class="legend-dot status-full"></div>All Done</div>
-            <div class="legend-item"><div class="legend-dot status-part"></div>Partially</div>
-            <div class="legend-item"><div class="legend-dot status-none"></div>None</div>
+            <div class="legend-item"><div class="legend-dot status-part"></div>Check</div>
+            <div class="legend-item"><div class="legend-dot status-none"></div>Empty</div>
         </div>
     </div>
 </div>
 
 <script>
     // --- 1. 配置与数据初始化 ---
-    const HABITS = ['早起晨间唤醒 ☀️', '阅读 20 分钟 📚', '运动/拉伸 🧘‍♀️', '喝水 8 杯 💧'];
+    // 新的习惯列表
+    const HABITS = [
+        '🛖 代码', 
+        '🎨 画画', 
+        '🧘 瑜伽', 
+        '🙇‍♀️ 日语', 
+        '🤽 阻力训练', 
+        '💖 记录生活', 
+        '🎀 身体保养', 
+        '🌕 冥想'
+    ];
+    
     const MOODS = ['🤩', '😊', '😐', '😫', '😡'];
     
-    // 获取 YYYY-MM-DD 格式的日期
+    // 获取 YYYY-MM-DD
     const getTodayStr = () => {
         const d = new Date();
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     };
-
     const todayStr = getTodayStr();
 
-    // 数据结构: { "2023-10-01": { mood: 1, habits: [true, false, true, false] } }
-    let appData = JSON.parse(localStorage.getItem('macaron_habit_data')) || {};
+    // 读取数据
+    let appData = JSON.parse(localStorage.getItem('macaron_habit_data_v2')) || {};
 
-    // 确保今日数据存在
-    if (!appData[todayStr]) {
-        appData[todayStr] = { mood: null, habits: new Array(HABITS.length).fill(false) };
+    // 简单的数据迁移或初始化 (如果之前的习惯数量不同，重置今日习惯结构)
+    if (!appData[todayStr] || appData[todayStr].habits.length !== HABITS.length) {
+        // 保留旧的心情，重置习惯数组
+        const oldMood = appData[todayStr] ? appData[todayStr].mood : null;
+        appData[todayStr] = { mood: oldMood, habits: new Array(HABITS.length).fill(false) };
     }
 
-    // --- 2. 核心逻辑函数 ---
+    // --- 2. 逻辑函数 ---
 
     function saveData() {
-        localStorage.setItem('macaron_habit_data', JSON.stringify(appData));
-        renderVisuals(); // 数据变动时刷新底部图表
+        localStorage.setItem('macaron_habit_data_v2', JSON.stringify(appData));
+        renderVisuals();
     }
 
     function toggleHabit(index) {
         appData[todayStr].habits[index] = !appData[todayStr].habits[index];
         saveData();
-        renderHabits(); // 仅重绘习惯列表的样式
+        renderHabits();
     }
 
     function setMood(index) {
@@ -298,17 +276,14 @@
         renderMood();
     }
 
-    // 获取某天的完成状态: 0=无/未记录, 1=部分, 2=全部
     function getStatus(dateStr) {
         const record = appData[dateStr];
-        if (!record || !record.habits) return 0; // 无记录
-
+        if (!record || !record.habits) return 0;
         const total = record.habits.length;
         const checked = record.habits.filter(Boolean).length;
-
-        if (checked === 0) return 0; // 有记录但没勾选
-        if (checked === total) return 2; // 全完成 (绿色)
-        return 1; // 部分完成 (紫色)
+        if (checked === 0) return 0;
+        if (checked === total) return 2;
+        return 1;
     }
 
     // --- 3. 渲染函数 ---
@@ -335,13 +310,12 @@
         container.innerHTML = '';
         HABITS.forEach((habit, index) => {
             const isChecked = appData[todayStr].habits[index];
-            
             const div = document.createElement('div');
             div.className = `habit-item ${isChecked ? 'checked' : ''}`;
             div.onclick = () => toggleHabit(index);
             
             div.innerHTML = `
-                <span>${habit}</span>
+                <span class="habit-text">${habit}</span>
                 <div class="custom-checkbox">
                     <span class="check-icon">✔</span>
                 </div>
@@ -358,16 +332,12 @@
     function renderWeeklyStripe() {
         const container = document.getElementById('weekly-stripe');
         container.innerHTML = '';
-        
         const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
         
-        // 过去6天 + 今天
         for (let i = 6; i >= 0; i--) {
             const d = new Date();
             d.setDate(d.getDate() - i);
             const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-            const dayName = days[d.getDay()];
-            
             const status = getStatus(dateStr);
             let colorClass = 'status-none';
             if (status === 2) colorClass = 'status-full';
@@ -377,7 +347,7 @@
             col.className = 'day-column';
             col.innerHTML = `
                 <div class="day-dot ${colorClass}"></div>
-                <span class="day-label">${i===0 ? 'Today' : dayName}</span>
+                <span class="day-label">${i===0 ? 'T' : days[d.getDay()][0]}</span>
             `;
             container.appendChild(col);
         }
@@ -387,37 +357,31 @@
         const container = document.getElementById('heatmap-grid');
         container.innerHTML = '';
         
-        // 显示过去 28 天 (4周) 或者 30 天
-        for (let i = 27; i >= 0; i--) {
+        // 渲染 180 天
+        for (let i = 179; i >= 0; i--) {
             const d = new Date();
             d.setDate(d.getDate() - i);
             const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-            
             const status = getStatus(dateStr);
+            
             let colorClass = 'status-none';
             if (status === 2) colorClass = 'status-full';
             if (status === 1) colorClass = 'status-part';
 
-            const cellOuter = document.createElement('div');
-            cellOuter.className = 'heat-cell';
-            
-            const cellInner = document.createElement('div');
-            cellInner.className = `heat-cell-inner ${colorClass}`;
-            cellInner.title = dateStr; // 鼠标悬停显示日期
-
-            cellOuter.appendChild(cellInner);
-            container.appendChild(cellOuter);
+            const cell = document.createElement('div');
+            cell.className = `heat-cell ${colorClass}`;
+            cell.title = dateStr; 
+            container.appendChild(cell);
         }
     }
 
-    // --- 4. 启动应用 ---
+    // --- 启动 ---
     (function init() {
         renderDate();
         renderMood();
         renderHabits();
         renderVisuals();
     })();
-
 </script>
 
 </body>
