@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2026 Illustrated Calendar</title>
+    <!-- 引入复古衬线字体，模拟画册印刷体 -->
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=IM+Fell+DW+Pica&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --paper-texture: #fdf6e3;
+            --ink-color: #2c241b;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #eee;
+            font-family: 'Cormorant Garamond', serif;
+            overflow: hidden;
+        }
+
+        /* 画框容器 */
+        .calendar-card {
+            width: 100%;
+            max-width: 450px; /* 保持原图的竖长比例 */
+            aspect-ratio: 3/4;
+            background: var(--paper-texture);
+            position: relative;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* --- 1. 纸张纹理层 (SVG Noise) --- */
+        .texture-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            z-index: 100;
+            opacity: 0.35;
+            pointer-events: none;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.5'/%3E%3C/svg%3E");
+            mix-blend-mode: multiply;
+        }
+
+        /* --- 2. 动态艺术背景层 --- */
+        .art-layer {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 1;
+        }
+
+        /* 天空与阳光 (模拟参考图的放射光) */
+        .sky {
+            width: 100%;
+            height: 70%;
+            position: absolute;
+            top: 0;
+            transition: background 1s ease;
+        }
+
+        .sun-rays {
+            position: absolute;
+            top: 20%; /* 太阳位置略偏下 */
+            left: -10%;
+            width: 120%;
+            height: 100%;
+            background: repeating-conic-gradient(
+                from 0deg at 20% 50%, 
+                transparent 0deg, 
+                transparent 2deg, 
+                rgba(255,255,255,0.2) 3deg, 
+                rgba(255,255,255,0.2) 5deg
+            );
+            mask-image: radial-gradient(circle at 20% 50%, transparent 10%, black 60%);
+            -webkit-mask-image: radial-gradient(circle at 20% 50%, transparent 10%, black 60%);
+        }
+
+        .the-sun {
+            position: absolute;
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: #fffdf0;
+            box-shadow: 0 0 40px rgba(255,255,200, 0.5);
+            top: 45%;
+            left: 10%;
+            transform: translateY(-50%);
+        }
+
+        /* 地面/海洋 */
+        .ground {
+            width: 100%;
+            height: 35%;
+            position: absolute;
+            bottom: 0;
+            z-index: 2;
+            transition: background 1s ease;
+            /* 波光粼粼的效果 */
+            background-image: repeating-linear-gradient(90deg, transparent, transparent 10px, rgba(255,255,255,0.1) 12px);
+        }
+
+        /* 角色剪影 (CSS Art) */
+        .characters {
+            position: absolute;
+            bottom: 5%;
+            right: 5%;
+            width: 300px;
+            height: 150px;
+            z-index: 3;
+            display: flex;
+            align-items: flex-end;
+            justify-content: flex-end;
+        }
+
+        .char {
+            position: relative;
+            transition: all 0.5s;
+        }
+
+        /* Moomin Shape */
+        .moomin {
+            width: 60px;
+            height: 80px;
+            background: #fdfdfd; /* 姆明的白 */
+            border-radius: 40% 40% 10% 10%;
+            margin-right: -10px;
+            box-shadow: -2px 2px 0 rgba(0,0,0,0.1);
+        }
+        .moomin::before { /* Ears */
+            content: ''; position: absolute; top: -5px; left: 5px;
+            width: 10px; height: 15px; background: inherit; border-radius: 50%;
+            box-shadow: 40px 0 0 inherit;
+        }
+        .moomin::after { /* Snout */
+            content: ''; position: absolute; top: 20px; left: -15px;
+            width: 25px; height: 30px; background: inherit; border-radius: 20px;
+        }
+
+        /* Snufkin Shape */
+        .snufkin {
+            width: 50px;
+            height: 70px;
+            background: #556B2F; /* 史力奇的绿 */
+            border-radius: 20% 20% 5px 5px;
+            margin-right: 15px;
+            position: relative;
+            z-index: 2;
+        }
+        .snufkin-hat {
+            position: absolute;
+            top: -20px; left: -15px;
+            width: 0; height: 0;
+            border-left: 40px solid transparent;
+            border-right: 40px solid transparent;
+            border-bottom: 30px solid #4a5d29;
+        }
+
+        /* Moomin Papa (Top Hat) */
+        .papa {
+            width: 65px;
+            height: 90px;
+            background: #fdfdfd;
+            border-radius: 40% 40% 10% 10%;
+            position: relative;
+        }
+        .top-hat {
+            position: absolute;
+            top: -25px; left: 10px;
+            width: 40px; height: 35px; background: #222;
+        }
+        .top-hat::after {
+            content: ''; position: absolute; bottom: 0; left: -10px;
+            width: 60px; height: 5px; background: #222;
+        }
+
+        /* --- 3. 日历数据层 --- */
+        .calendar-layer {
+            position: relative;
+            z-index: 10;
+            padding: 40px 30px;
+            text-align: center;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            color: var(--ink-color);
+        }
+
+        /* 月份大标题 */
+        .month-header {
+            margin-bottom: 10px;
+        }
+
+        .month-number {
+            font-size: 3rem;
+            font-family: 'IM Fell DW Pica', serif; /* 手写印刷感 */
+            display: block;
+            line-height: 1;
+        }
+
+        .month-name {
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-weight: 400;
+            opacity: 0.8;
+            margin-top: 5px;
+            display: block;
+        }
+
+        /* 日历网格 */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 10px 0;
+            margin-top: 20px;
+            /* 让网格在视觉上浮在阳光前面 */
+            text-shadow: 0 0 20px rgba(255,255,255,0.8); 
+        }
+
+        .weekday {
+            font-size: 0.6rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 15px;
+            opacity: 0.7;
+        }
+
+        .day {
+            font-size: 0.95rem;
+            height: 30px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: 600;
+            position: relative;
+        }
+
+        /* 周末变色 */
+        .day:nth-child(7n), .day:nth-child(7n+1) {
+            color: #8b4513; /* 深褐色 */
+        }
+        
+        .grid .weekday:nth-child(7n), .grid .weekday:nth-child(7n-6) {
+             color: #8b4513;
+        }
+
+        /* 空白填充 */
+        .empty { pointer-events: none; }
+
+        /* --- 底部控制条 (仅用于演示切换) --- */
+        .controls {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 200;
+            opacity: 0; /* 默认隐藏，鼠标移上去显示 */
+            transition: opacity 0.3s;
+            background: rgba(255,255,255,0.8);
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-family: sans-serif;
+            font-size: 12px;
+        }
+        .calendar-card:hover .controls { opacity: 1; }
+        button { cursor: pointer; border: none; background: transparent; font-weight: bold;}
+
+    </style>
+</head>
+<body>
+
+<div class="calendar-card">
+    <div class="texture-overlay"></div>
+    
+    <!-- 艺术背景 -->
+    <div class="art-layer">
+        <div class="sky" id="art-sky">
+            <div class="sun-rays"></div>
+            <div class="the-sun" id="art-sun"></div>
+        </div>
+        <div class="ground" id="art-ground"></div>
+        
+        <!-- 角色剪影：模拟背影 -->
+        <div class="characters">
+            <div class="snufkin">
+                <div class="snufkin-hat"></div>
+            </div>
+            <div class="moomin"></div>
+            <div class="papa">
+                <div class="top-hat"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 日历内容 -->
+    <div class="calendar-layer">
+        <div class="month-header">
+            <span class="month-number" id="disp-month-num">1</span>
+            <span class="month-name" id="disp-month-name">January 2026</span>
+        </div>
+
+        <div class="grid" id="calendar-grid">
+            <!-- JS 生成 -->
+        </div>
+    </div>
+
+    <!-- 隐藏的控制条：方便你测试不同月份的效果 -->
+    <div class="controls">
+        <button onclick="changeMonth(-1)">◀</button>
+        <span id="debug-date"></span>
+        <button onclick="changeMonth(1)">▶</button>
+    </div>
+</div>
+
+<script>
+    // --- 季节与艺术风格配置 (The Magic Part) ---
+    // 这里的颜色尽量还原插画那种复古、低饱和度的感觉
+    const THEMES = [
+        // 1月 (参考图): 杏色日出，暖洋洋
+        { sky: 'linear-gradient(to bottom, #ffe4d1, #ffccb3)', ground: '#d98e73', sun: '#fffdf0' },
+        // 2月: 冬末雪景，淡蓝，冷清
+        { sky: 'linear-gradient(to bottom, #e3f2fd, #bbdefb)', ground: '#ffffff', sun: '#fdfbf7' },
+        // 3月: 早春，嫩绿，淡黄
+        { sky: 'linear-gradient(to bottom, #fff9c4, #f0f4c3)', ground: '#dcedc8', sun: '#fff176' },
+        // 4月: 春花，粉色调
+        { sky: 'linear-gradient(to bottom, #fce4ec, #f8bbd0)', ground: '#c5e1a5', sun: '#ffecb3' },
+        // 5月: 盛春，清爽的绿
+        { sky: 'linear-gradient(to bottom, #e0f7fa, #b2ebf2)', ground: '#a5d6a7', sun: '#fff9c4' },
+        // 6月: 初夏，明亮的蓝
+        { sky: 'linear-gradient(to bottom, #b3e5fc, #81d4fa)', ground: '#fff59d', sun: '#ffee58' },
+        // 7月: 盛夏，热烈的海滩黄昏
+        { sky: 'linear-gradient(to bottom, #ffecb3, #ffca28)', ground: '#4fc3f7', sun: '#ffeb3b' },
+        // 8月: 夏末，深沉的蓝绿
+        { sky: 'linear-gradient(to bottom, #e0f2f1, #80cbc4)', ground: '#f0f4c3', sun: '#fff59d' },
+        // 9月: 初秋，淡紫，丰收
+        { sky: 'linear-gradient(to bottom, #f3e5f5, #ce93d8)', ground: '#ffcc80', sun: '#ffccbc' },
+        // 10月: 深秋，南瓜色，万圣节
+        { sky: 'linear-gradient(to bottom, #ffe0b2, #ffb74d)', ground: '#8d6e63', sun: '#ffe082' },
+        // 11月: 初冬，灰调，静谧
+        { sky: 'linear-gradient(to bottom, #eceff1, #cfd8dc)', ground: '#bcaaa4', sun: '#fffde7' },
+        // 12月: 深冬，极夜蓝，圣诞红点缀(需想象)
+        { sky: 'linear-gradient(to bottom, #c5cae9, #9fa8da)', ground: '#eeeeee', sun: '#fff9c4' },
+    ];
+
+    // --- 日历逻辑 ---
+    
+    // 初始化日期：使用当前真实月份，但年份强制为 2026
+    const today = new Date();
+    let currentYear = 2026; 
+    let currentMonth = today.getMonth(); // 0-11
+    
+    // 如果现在是2025年，我们默认展示2026年对应的当前月份
+    // (例如现在是2025年12月，就展示2026年12月)
+
+    function init() {
+        renderCalendar(currentMonth);
+    }
+
+    function renderCalendar(monthIndex) {
+        // 1. 更新艺术风格
+        const theme = THEMES[monthIndex];
+        document.getElementById('art-sky').style.background = theme.sky;
+        document.getElementById('art-ground').style.background = theme.ground;
+        document.getElementById('art-sun').style.background = theme.sun;
+
+        // 2. 更新标题
+        const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+        document.getElementById('disp-month-num').innerText = monthIndex + 1;
+        document.getElementById('disp-month-name').innerText = `${monthNames[monthIndex]} ${currentYear}`;
+        
+        // 3. 生成网格
+        const grid = document.getElementById('calendar-grid');
+        grid.innerHTML = '';
+
+        // 添加星期头
+        const weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+        weekDays.forEach(day => {
+            const div = document.createElement('div');
+            div.className = 'weekday';
+            div.innerText = day;
+            grid.appendChild(div);
+        });
+
+        // 计算当月第一天是周几
+        // 注意：JS中getDay() 0是周日。我们日历习惯从周一开始。
+        const firstDay = new Date(currentYear, monthIndex, 1);
+        let startDay = firstDay.getDay(); 
+        if (startDay === 0) startDay = 7; // 把周日(0)变成7
+        startDay -= 1; // 变成 0(Mon) - 6(Sun) 方便计算
+
+        // 计算当月有多少天
+        const daysInMonth = new Date(currentYear, monthIndex + 1, 0).getDate();
+
+        // 填充空白
+        for (let i = 0; i < startDay; i++) {
+            const div = document.createElement('div');
+            div.className = 'empty';
+            grid.appendChild(div);
+        }
+
+        // 填充日期
+        for (let i = 1; i <= daysInMonth; i++) {
+            const div = document.createElement('div');
+            div.className = 'day';
+            div.innerText = i;
+            grid.appendChild(div);
+        }
+
+        // 更新调试条
+        document.getElementById('debug-date').innerText = `${monthIndex + 1} / ${currentYear}`;
+    }
+
+    // 切换月份 (为了方便查看效果，保留了手动切换功能)
+    function changeMonth(step) {
+        currentMonth += step;
+        if (currentMonth > 11) {
+            currentMonth = 0;
+            // 年份不增加，锁定在2026
+        } else if (currentMonth < 0) {
+            currentMonth = 11;
+        }
+        renderCalendar(currentMonth);
+    }
+
+    // 启动
+    init();
+
+</script>
+
+</body>
+</html>
