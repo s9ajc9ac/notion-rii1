@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sakura Gallery Lineup</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Noto+Serif+SC:wght@300;600&family=Playfair+Display:ital@0;1&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --sakura-light: #FCEFF3;
+            --sakura-pink: #F8C3CD;
+            --sakura-deep: #D08A95;
+            --campus-red: #A64B56;
+            --paper-cream: #FDFBF7;
+            --text-color: #5D4037;
+        }
+
+        * { box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
+
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #F0F2F5;
+            font-family: 'Noto Serif SC', serif;
+            overflow: hidden;
+        }
+
+        .notebook-container {
+            width: 100%;
+            max-width: 900px;
+            height: 90vh;
+            background-color: var(--paper-cream);
+            position: relative;
+            box-shadow: 0 15px 35px rgba(166, 75, 86, 0.15);
+            display: flex;
+            overflow: hidden;
+            border-radius: 4px 12px 12px 4px;
+        }
+
+        /* 左侧书脊 */
+        .spine {
+            width: 40px;
+            height: 100%;
+            background-color: var(--campus-red);
+            background-image: linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px);
+            background-size: 4px 100%;
+            flex-shrink: 0;
+            box-shadow: inset -5px 0 10px rgba(0,0,0,0.2);
+            z-index: 100;
+        }
+
+        /* 樱花背景 */
+        .sakura-bg {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 0;
+            background-image: 
+                radial-gradient(circle at 10% 20%, var(--sakura-pink) 2px, transparent 3px),
+                radial-gradient(circle at 90% 80%, var(--sakura-pink) 2px, transparent 3px);
+            background-size: 100px 100px;
+            opacity: 0.6;
+        }
+
+        .main-view {
+            flex-grow: 1;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            z-index: 1;
+            overflow: hidden;
+        }
+
+        .header {
+            padding: 20px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            border-bottom: 2px solid var(--sakura-light);
+            background: rgba(253, 251, 247, 0.8);
+        }
+
+        .logo { font-family: 'Cinzel', serif; font-size: 2.2rem; color: var(--campus-red); font-weight: 700; }
+        .subtitle { font-family: 'Playfair Display', serif; color: var(--sakura-deep); font-style: italic; }
+
+        /* --- 画廊大厅 --- */
+        .gallery-hall {
+            flex-grow: 1;
+            display: flex;
+            align-items: center;
+            overflow-x: auto;
+            overflow-y: hidden;
+            padding: 0 40px;
+            cursor: grab;
+            scrollbar-width: none;
+        }
+        .gallery-hall::-webkit-scrollbar { display: none; }
+        .gallery-hall:active { cursor: grabbing; }
+
+        .scroll-track { display: flex; align-items: center; gap: 20px; padding: 50px 20px; }
+
+        .month-card {
+            width: 160px; height: 220px;
+            background: white;
+            border: 1px solid #eee;
+            box-shadow: 5px 10px 15px rgba(0,0,0,0.05);
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            position: relative; flex-shrink: 0; border-radius: 6px; cursor: pointer;
+        }
+
+        .month-card:nth-child(even) { transform: translateY(30px); }
+        .month-card:nth-child(odd) { transform: translateY(-30px); }
+        .month-card:hover { box-shadow: 8px 15px 25px rgba(166, 75, 86, 0.2); border: 1px solid var(--sakura-pink); z-index: 10; }
+        .month-card:nth-child(even):hover { transform: translateY(25px) scale(1.02); }
+        .month-card:nth-child(odd):hover { transform: translateY(-35px) scale(1.02); }
+
+        .month-num { font-family: 'Cinzel', serif; font-size: 3rem; color: var(--campus-red); }
+        .month-name { font-size: 0.8rem; color: #999; letter-spacing: 2px; margin-top: 5px; text-transform: uppercase; }
+        .photo-count { position: absolute; bottom: 15px; font-size: 0.7rem; color: white; background: var(--sakura-deep); padding: 2px 10px; border-radius: 10px; }
+
+        /* --- 详情页 (The Lineup) --- */
+        .album-view {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            background: var(--paper-cream);
+            z-index: 200;
+            display: none; flex-direction: column;
+            animation: slideIn 0.3s ease-out;
+        }
+        @keyframes slideIn { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
+        .album-header {
+            padding: 15px 30px; display: flex; align-items: center; justify-content: space-between;
+            background: white; box-shadow: 0 2px 10px rgba(0,0,0,0.05); z-index: 10;
+        }
+        .back-btn {
+            background: var(--sakura-light); border: none; padding: 8px 20px; border-radius: 20px;
+            cursor: pointer; color: var(--campus-red); font-weight: bold; font-family: 'Cinzel'; transition: all 0.2s;
+        }
+        .back-btn:hover { background: var(--sakura-pink); color: white; }
+        .album-title { font-family: 'Cinzel'; font-size: 1.5rem; color: var(--campus-red); }
+
+        /* --- 瀑布流布局核心 (The Lineup) --- */
+        .photo-masonry {
+            flex-grow: 1;
+            padding: 30px;
+            overflow-y: auto;
+            /* 关键：使用多列布局实现瀑布流 */
+            column-count: 3; 
+            column-gap: 20px;
+            perspective: 1000px;
+        }
+        /* 响应式调整列数 */
+        @media (max-width: 600px) { .photo-masonry { column-count: 2; } }
+
+        .photo-item {
+            /* 关键：防止元素被切断 */
+            break-inside: avoid;
+            margin-bottom: 20px;
+            background: white;
+            padding: 8px 8px 25px 8px; /* 拍立得效果：底部留白多 */
+            box-shadow: 2px 4px 8px rgba(0,0,0,0.1);
+            transition: transform 0.3s, z-index 0s;
+            cursor: zoom-in;
+            position: relative;
+            border-radius: 2px;
+        }
+        
+        .photo-item img { width: 100%; height: auto; display: block; object-fit: cover; }
+        
+        /* 模拟手账的随意粘贴感 (随机旋转) */
+        .photo-item:nth-child(3n) { transform: rotate(1deg); }
+        .photo-item:nth-child(3n+1) { transform: rotate(-1.5deg); }
+        .photo-item:nth-child(3n+2) { transform: rotate(0.5deg); }
+        
+        .photo-item:hover { transform: scale(1.02) rotate(0deg); z-index: 5; box-shadow: 5px 10px 20px rgba(0,0,0,0.15); }
+
+        .delete-btn {
+            position: absolute; top: -8px; right: -8px;
+            width: 24px; height: 24px; background: #ff6b6b; color: white;
+            border-radius: 50%; text-align: center; line-height: 24px; font-weight: bold;
+            display: none; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        .photo-item:hover .delete-btn { display: block; }
+
+        /* --- 固定上传按钮 (FAB) --- */
+        .fab-upload {
+            position: absolute; bottom: 30px; right: 30px;
+            width: 60px; height: 60px;
+            background: var(--campus-red);
+            color: white; border-radius: 50%;
+            display: flex; justify-content: center; align-items: center;
+            font-size: 30px; box-shadow: 0 4px 15px rgba(166, 75, 86, 0.4);
+            cursor: pointer; transition: transform 0.2s; z-index: 50;
+        }
+        .fab-upload:hover { transform: scale(1.1) rotate(90deg); background: var(--sakura-deep); }
+        .fab-upload:active { transform: scale(0.9); }
+
+        /* --- 全屏 Lightbox --- */
+        .lightbox-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 1000;
+            display: none;
+            justify-content: center; align-items: center;
+            cursor: zoom-out;
+            opacity: 0; transition: opacity 0.3s;
+        }
+        .lightbox-overlay.active { display: flex; opacity: 1; }
+        .lightbox-img {
+            max-width: 90%; max-height: 90%;
+            border: 10px solid white;
+            box-shadow: 0 0 50px rgba(0,0,0,0.5);
+            transform: scale(0.9); transition: transform 0.3s;
+        }
+        .lightbox-overlay.active .lightbox-img { transform: scale(1); }
+
+        #file-input { display: none; }
+        .loading-tip {
+            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            background: rgba(0,0,0,0.7); color: white; padding: 10px 20px;
+            border-radius: 20px; font-size: 0.8rem; display: none; z-index: 300;
+        }
+
+    </style>
+</head>
+<body>
+
+<div class="notebook-container">
+    <div class="spine"></div>
+    <div class="sakura-bg"></div>
+
+    <div class="main-view">
+        <div class="header">
+            <div class="logo">Campus</div>
+            <div class="subtitle">Lineup Gallery</div>
+        </div>
+
+        <!-- 视图 1: 月份画廊 -->
+        <div class="gallery-hall" id="gallery-hall">
+            <div class="scroll-track" id="month-track">
+                <!-- JS 生成 -->
+            </div>
+        </div>
+
+        <!-- 视图 2: 详情画册 (The Lineup) -->
+        <div class="album-view" id="album-view">
+            <div class="album-header">
+                <button class="back-btn" onclick="closeAlbum()">❮ Back</button>
+                <div class="album-title" id="album-title-text">January</div>
+                <div style="width: 80px;"></div>
+            </div>
+            
+            <!-- 瀑布流照片容器 -->
+            <div class="photo-masonry" id="photo-masonry">
+                <!-- JS 生成照片 -->
+            </div>
+
+            <!-- 右下角固定上传按钮 -->
+            <div class="fab-upload" onclick="document.getElementById('file-input').click()" title="Add Photo">
+                +
+            </div>
+        </div>
+        
+        <div class="loading-tip" id="loading-tip">Storing Memory... 🌸</div>
+    </div>
+</div>
+
+<!-- 全屏查看容器 -->
+<div class="lightbox-overlay" id="lightbox" onclick="closeLightbox()">
+    <img src="" class="lightbox-img" id="lightbox-img">
+</div>
+
+<input type="file" id="file-input" accept="image/*" multiple>
+
+<script>
+    // --- 数据 ---
+    const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    let galleryData = JSON.parse(localStorage.getItem('sakura_lineup_v3')) || {};
+    let currentMonthIndex = null;
+
+    // --- 交互核心：区分滑动与点击 (保持 v2 修复逻辑) ---
+    const slider = document.querySelector('.gallery-hall');
+    let isDown = false;
+    let startX;
+    let scrollLeft;
+    let isDragging = false; 
+
+    slider.addEventListener('mousedown', (e) => {
+        isDown = true; isDragging = false;
+        startX = e.pageX - slider.offsetLeft;
+        scrollLeft = slider.scrollLeft;
+    });
+    slider.addEventListener('mouseleave', () => { isDown = false; });
+    slider.addEventListener('mouseup', () => { isDown = false; });
+    slider.addEventListener('mousemove', (e) => {
+        if(!isDown) return;
+        e.preventDefault();
+        const x = e.pageX - slider.offsetLeft;
+        const walk = (x - startX) * 2; 
+        slider.scrollLeft = scrollLeft - walk;
+        if(Math.abs(x - startX) > 5) isDragging = true;
+    });
+
+    // --- 渲染逻辑 ---
+
+    function init() { renderMonths(); }
+
+    function renderMonths() {
+        const track = document.getElementById('month-track');
+        track.innerHTML = '';
+        MONTHS.forEach((name, index) => {
+            const count = galleryData[index] ? galleryData[index].length : 0;
+            const card = document.createElement('div');
+            card.className = 'month-card';
+            card.onclick = () => { if(!isDragging) openAlbum(index); };
+            card.innerHTML = `
+                <div class="month-num">${index + 1}</div>
+                <div class="month-name">${name}</div>
+                <div class="photo-count">${count}</div>
+            `;
+            track.appendChild(card);
+        });
+    }
+
+    function openAlbum(index) {
+        currentMonthIndex = index;
+        document.getElementById('album-title-text').innerText = MONTHS[index];
+        renderMasonry();
+        document.getElementById('album-view').style.display = 'flex';
+    }
+
+    function closeAlbum() {
+        document.getElementById('album-view').style.display = 'none';
+        currentMonthIndex = null;
+        renderMonths(); 
+    }
+
+    function renderMasonry() {
+        const container = document.getElementById('photo-masonry');
+        container.innerHTML = '';
+
+        if (!galleryData[currentMonthIndex]) galleryData[currentMonthIndex] = [];
+        
+        const photos = galleryData[currentMonthIndex];
+
+        if (photos.length === 0) {
+            container.innerHTML = '<div style="text-align:center; width:100%; color:#999; margin-top:50px;">Nothing here yet.<br>Click the + button to add.</div>';
+            return;
+        }
+        
+        photos.forEach((src, imgIndex) => {
+            const item = document.createElement('div');
+            item.className = 'photo-item';
+            // 点击放大，并防止触发删除
+            item.onclick = (e) => openLightbox(src);
+            
+            item.innerHTML = `
+                <img src="${src}">
+                <div class="delete-btn" onclick="deletePhoto(event, ${imgIndex})">×</div>
+            `;
+            container.appendChild(item);
+        });
+    }
+
+    // --- 图片处理逻辑 ---
+
+    document.getElementById('file-input').addEventListener('change', async (e) => {
+        if (currentMonthIndex === null) return;
+        const files = e.target.files;
+        if (files.length === 0) return;
+
+        showLoading(true);
+        for (let file of files) {
+            try {
+                const base64 = await compressImage(file);
+                galleryData[currentMonthIndex].push(base64);
+            } catch (err) { console.error(err); }
+        }
+        saveData();
+        renderMasonry();
+        showLoading(false);
+        e.target.value = ''; 
+    });
+
+    function compressImage(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = (e) => {
+                const img = new Image();
+                img.src = e.target.result;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const MAX_WIDTH = 600; 
+                    const scale = MAX_WIDTH / img.width;
+                    const w = (scale < 1) ? MAX_WIDTH : img.width;
+                    const h = (scale < 1) ? img.height * scale : img.height;
+                    canvas.width = w; canvas.height = h;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, w, h);
+                    resolve(canvas.toDataURL('image/jpeg', 0.6));
+                };
+                img.onerror = reject;
+            };
+            reader.onerror = reject;
+        });
+    }
+
+    function deletePhoto(e, index) {
+        e.stopPropagation(); 
+        if(confirm("Discard this memory?")) {
+            galleryData[currentMonthIndex].splice(index, 1);
+            saveData();
+            renderMasonry();
+        }
+    }
+
+    // --- 全屏 Lightbox 逻辑 ---
+    function openLightbox(src) {
+        const lightbox = document.getElementById('lightbox');
+        const img = document.getElementById('lightbox-img');
+        img.src = src;
+        lightbox.classList.add('active');
+    }
+
+    function closeLightbox() {
+        const lightbox = document.getElementById('lightbox');
+        lightbox.classList.remove('active');
+        // 稍微延迟清空src，避免闪烁
+        setTimeout(() => { document.getElementById('lightbox-img').src = ''; }, 300);
+    }
+
+    function saveData() {
+        try {
+            localStorage.setItem('sakura_lineup_v3', JSON.stringify(galleryData));
+        } catch (e) { alert('Storage full! Delete some photos.'); }
+    }
+
+    function showLoading(show) {
+        document.getElementById('loading-tip').style.display = show ? 'block' : 'none';
+    }
+
+    init();
+</script>
+
+</body>
+</html>
