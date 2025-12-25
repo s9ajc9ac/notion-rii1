@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stationery Dashboard</title>
+    <!-- 引入多种手写字体，匹配不同纸张风格 -->
+    <link href="https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&family=Long+Cang&family=Patrick+Hand&family=Zeyada&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-desk: #f4f4f6; /* 桌面背景 */
+            --drawer-color: #6d6875;
+            --text-dark: #4a4a4a;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            padding: 20px;
+            background-color: var(--bg-desk);
+            font-family: 'Patrick Hand', sans-serif;
+            color: var(--text-dark);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* --- 核心网格布局 --- */
+        .grid-container {
+            display: grid;
+            /* 响应式网格：每列最小140px，自动填满 */
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 15px;
+            padding-bottom: 60px; /* 留给底部归档条的空间 */
+            overflow-y: auto;
+            flex-grow: 1;
+            /* 隐藏滚动条但允许滚动 */
+            scrollbar-width: none; 
+        }
+        .grid-container::-webkit-scrollbar { display: none; }
+
+        /* --- 通用便签卡片样式 --- */
+        .pad-item {
+            aspect-ratio: 3/4; /* 保持 3:4 的长宽比，像小卡片 */
+            padding: 15px;
+            border-radius: 4px;
+            box-shadow: 2px 4px 8px rgba(0,0,0,0.08);
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .pad-item:hover {
+            transform: translateY(-4px);
+            box-shadow: 4px 8px 12px rgba(0,0,0,0.12);
+            z-index: 2;
+        }
+
+        .pad-content {
+            font-size: 1rem;
+            line-height: 1.4;
+            flex-grow: 1;
+            overflow: hidden;
+            word-wrap: break-word;
+            white-space: pre-wrap;
+        }
+
+        .pad-empty-hint {
+            color: rgba(0,0,0,0.3);
+            text-align: center;
+            margin-top: 50%;
+            transform: translateY(-50%);
+            font-size: 1.2rem;
+            pointer-events: none;
+        }
+
+        .pad-date {
+            font-size: 0.7rem;
+            opacity: 0.6;
+            text-align: right;
+            margin-top: 5px;
+            font-family: sans-serif;
+        }
+
+        /* --- 🎨 8种不同的纸张风格 (CSS 模拟) --- */
+
+        /* 1. 粉色光晕 (左上) */
+        .style-pink-aura {
+            background: radial-gradient(circle at center, #ffe6f2 0%, #fff0f5 40%, #ffffff 100%);
+            border: 1px solid #ffe6f2;
+            font-family: 'Zeyada', cursive;
+            font-size: 1.2rem;
+        }
+
+        /* 2. 薄荷绿条纹 (中上) */
+        .style-mint-stripe {
+            background-color: #e8f5e9;
+            background-image: repeating-linear-gradient(90deg, transparent, transparent 19px, #c8e6c9 20px);
+            font-family: 'Gaegu', cursive;
+        }
+
+        /* 3. 蓝色云朵 (右上) */
+        .style-blue-cloud {
+            background: radial-gradient(circle at 20% 20%, #e3f2fd, transparent 40%),
+                        radial-gradient(circle at 80% 80%, #bbdefb, transparent 40%),
+                        #f0f8ff;
+            font-family: 'Patrick Hand', cursive;
+        }
+
+        /* 4. To Do List (左中 - 棕色头) */
+        .style-todo {
+            background: #e8f6e9; /* 浅绿底 */
+            background-image: radial-gradient(#a5d6a7 15%, transparent 16%);
+            background-size: 20px 20px;
+        }
+        .style-todo::before {
+            content: "TO THE LIST";
+            display: block;
+            background: #d7ccc8;
+            color: white;
+            text-align: center;
+            padding: 4px;
+            margin: -15px -15px 10px -15px;
+            font-size: 0.8rem;
+            letter-spacing: 1px;
+        }
+
+        /* 5. 菱形格纹 (中中) */
+        .style-plaid {
+            background-color: #fff;
+            background-image: linear-gradient(45deg, #f8bbd0 25%, transparent 25%, transparent 75%, #f8bbd0 75%, #f8bbd0),
+                              linear-gradient(45deg, #f8bbd0 25%, transparent 25%, transparent 75%, #f8bbd0 75%, #f8bbd0);
+            background-size: 40px 40px;
+            background-position: 0 0, 20px 20px;
+            opacity: 0.9;
+        }
+        /* 增加白色遮罩让字更清晰 */
+        .style-plaid .pad-content {
+            background: rgba(255,255,255,0.85);
+            padding: 5px;
+            border-radius: 4px;
+        }
+
+        /* 6. 乐谱线 (右中) */
+        .style-music {
+            background-color: #fff;
+            background-image: repeating-linear-gradient(transparent, transparent 19px, #e0e0e0 20px);
+            font-family: 'Long Cang', cursive;
+            font-size: 1.2rem;
+        }
+
+        /* 7. 英文本 (左下 - 粉线) */
+        .style-english {
+            background-color: #fff;
+            background-image: linear-gradient(#ffcdd2 1px, transparent 1px);
+            background-size: 100% 25px;
+            line-height: 25px !important; /* 强制行高对齐 */
+        }
+
+        /* 8. 绿色方格 (中下) */
+        .style-grid-green {
+            background-color: #f1f8e9;
+            background-image: 
+                linear-gradient(#c5e1a5 1px, transparent 1px),
+                linear-gradient(90deg, #c5e1a5 1px, transparent 1px);
+            background-size: 15px 15px;
+        }
+
+        /* --- 底部收纳抽屉 --- */
+        .drawer-bar {
+            position: fixed;
+            bottom: 0; left: 0; right: 0;
+            height: 50px;
+            background: var(--drawer-color);
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            border-top-left-radius: 15px;
+            border-top-right-radius: 15px;
+            font-family: 'Gaegu', cursive;
+            font-size: 1.4rem;
+            transition: height 0.3s;
+            z-index: 10;
+        }
+        .drawer-bar:hover { height: 60px; }
+
+        /* --- 编辑模态框 --- */
+        .modal {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255,255,255,0.9);
+            z-index: 100;
+            display: none;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal.active { display: flex; animation: fadeIn 0.2s; }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        .editor-card {
+            width: 90%;
+            max-width: 500px;
+            height: 70vh;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            border: 2px solid #eee;
+        }
+
+        textarea {
+            flex-grow: 1;
+            border: none;
+            resize: none;
+            font-family: inherit;
+            font-size: 1.2rem;
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .editor-actions {
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .btn {
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-family: 'Gaegu', cursive;
+            font-size: 1.1rem;
+            font-weight: bold;
+        }
+        .btn-save { background: #B5EAD7; color: #444; }
+        .btn-archive { background: #ffb7b2; color: white; }
+        .btn-cancel { background: transparent; color: #999; }
+
+        /* --- 归档列表模态框 --- */
+        .archive-list-modal {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: #fff;
+            z-index: 110;
+            display: none;
+            flex-direction: column;
+            padding: 20px;
+        }
+        .archive-list-modal.active { display: flex; }
+        
+        .archive-item {
+            padding: 15px;
+            border-bottom: 1px dashed #ccc;
+            background: #fafafa;
+            margin-bottom: 10px;
+            border-radius: 8px;
+        }
+
+    </style>
+</head>
+<body>
+
+<!-- 核心网格：固定 8 个便签位 -->
+<div class="grid-container">
+    <div class="pad-item style-pink-aura" onclick="openEditor(0)"></div>
+    <div class="pad-item style-mint-stripe" onclick="openEditor(1)"></div>
+    <div class="pad-item style-blue-cloud" onclick="openEditor(2)"></div>
+    <div class="pad-item style-todo" onclick="openEditor(3)"></div>
+    <div class="pad-item style-plaid" onclick="openEditor(4)"></div>
+    <div class="pad-item style-music" onclick="openEditor(5)"></div>
+    <div class="pad-item style-english" onclick="openEditor(6)"></div>
+    <div class="pad-item style-grid-green" onclick="openEditor(7)"></div>
+</div>
+
+<!-- 底部收纳 -->
+<div class="drawer-bar" onclick="toggleArchiveList()">
+    📂 Archive Drawer
+</div>
+
+<!-- 编辑器弹窗 -->
+<div class="modal" id="editor-modal">
+    <div class="editor-card" id="editor-card">
+        <textarea id="note-input" placeholder="Write something here..."></textarea>
+        <div class="editor-actions">
+            <div>
+                <button class="btn btn-archive" onclick="archiveCurrent()">Archive & Clear</button>
+            </div>
+            <div>
+                <button class="btn btn-cancel" onclick="closeEditor()">Close</button>
+                <button class="btn btn-save" onclick="saveCurrent()">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 归档列表弹窗 -->
+<div class="archive-list-modal" id="archive-modal">
+    <div style="display:flex; justify-content:space-between; margin-bottom:20px;">
+        <h2 style="margin:0;">🗃️ Past Notes</h2>
+        <button class="btn btn-cancel" onclick="toggleArchiveList()" style="font-size:1.5rem;">×</button>
+    </div>
+    <div id="archive-container" style="overflow-y:auto; flex-grow:1;">
+        <!-- JS 生成 -->
+    </div>
+</div>
+
+<script>
+    // --- 1. 配置与状态 ---
+    const PAD_COUNT = 8;
+    // 固定的 8 个便签位的数据，只存内容和日期
+    let activePads = JSON.parse(localStorage.getItem('stationery_pads_v3')) || new Array(PAD_COUNT).fill(null);
+    // 归档数据
+    let archives = JSON.parse(localStorage.getItem('stationery_archives_v3')) || [];
+
+    let currentEditingIndex = -1;
+
+    // --- 2. 渲染主网格 ---
+    function renderGrid() {
+        const pads = document.querySelectorAll('.pad-item');
+        pads.forEach((pad, index) => {
+            const data = activePads[index];
+            // 清空旧内容
+            pad.innerHTML = '';
+            
+            if (!data || !data.content) {
+                // 空状态
+                pad.innerHTML = `<div class="pad-empty-hint">Write Here</div>`;
+            } else {
+                // 有内容状态
+                pad.innerHTML = `
+                    <div class="pad-content">${data.content}</div>
+                    <div class="pad-date">${formatDate(data.updatedAt)}</div>
+                `;
+            }
+        });
+    }
+
+    // --- 3. 交互逻辑 ---
+
+    function openEditor(index) {
+        currentEditingIndex = index;
+        const modal = document.getElementById('editor-modal');
+        const textarea = document.getElementById('note-input');
+        
+        // 载入已有内容
+        const data = activePads[index];
+        textarea.value = data ? data.content : '';
+        
+        // 设置编辑器背景色以匹配选中的纸张（增加沉浸感）
+        // 获取 CSS 计算后的背景
+        const padStyle = window.getComputedStyle(document.querySelectorAll('.pad-item')[index]);
+        const editorCard = document.getElementById('editor-card');
+        // 这里简单地设为白色背景，但保留文字字体
+        textarea.style.fontFamily = padStyle.fontFamily;
+        
+        modal.classList.add('active');
+        textarea.focus();
+    }
+
+    function closeEditor() {
+        document.getElementById('editor-modal').classList.remove('active');
+        currentEditingIndex = -1;
+    }
+
+    function saveCurrent() {
+        if (currentEditingIndex === -1) return;
+        
+        const content = document.getElementById('note-input').value.trim();
+        
+        if (content) {
+            activePads[currentEditingIndex] = {
+                content: content,
+                updatedAt: Date.now()
+            };
+        } else {
+            // 如果清空了内容，视为重置
+            activePads[currentEditingIndex] = null;
+        }
+        
+        saveData();
+        renderGrid();
+        closeEditor();
+    }
+
+    function archiveCurrent() {
+        if (currentEditingIndex === -1) return;
+        const data = activePads[currentEditingIndex];
+        
+        if (data && data.content) {
+            // 添加到归档
+            archives.unshift({
+                content: data.content,
+                archivedAt: Date.now(),
+                styleIndex: currentEditingIndex // 记录原来是哪种纸，以后可以做颜色标记
+            });
+            // 清空当前纸张
+            activePads[currentEditingIndex] = null;
+            
+            saveData();
+            renderGrid();
+            closeEditor();
+            alert("Moved to Archive Drawer!");
+        } else {
+            closeEditor();
+        }
+    }
+
+    // --- 4. 归档抽屉逻辑 ---
+    function toggleArchiveList() {
+        const modal = document.getElementById('archive-modal');
+        const isActive = modal.classList.contains('active');
+        
+        if (!isActive) {
+            renderArchives();
+            modal.classList.add('active');
+        } else {
+            modal.classList.remove('active');
+        }
+    }
+
+    function renderArchives() {
+        const container = document.getElementById('archive-container');
+        container.innerHTML = '';
+        
+        if (archives.length === 0) {
+            container.innerHTML = '<div style="text-align:center; color:#999; margin-top:20px;">Drawer is empty.</div>';
+            return;
+        }
+
+        archives.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'archive-item';
+            div.innerHTML = `
+                <div style="font-size:1.1rem; margin-bottom:5px;">${item.content}</div>
+                <div style="font-size:0.8rem; color:#888; text-align:right;">
+                    Archived on ${formatDate(item.archivedAt)}
+                </div>
+            `;
+            container.appendChild(div);
+        });
+    }
+
+    // --- 5. 工具函数 ---
+    function saveData() {
+        localStorage.setItem('stationery_pads_v3', JSON.stringify(activePads));
+        localStorage.setItem('stationery_archives_v3', JSON.stringify(archives));
+    }
+
+    function formatDate(ts) {
+        if (!ts) return '';
+        const d = new Date(ts);
+        return `${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`;
+    }
+
+    // 初始化
+    renderGrid();
+
+</script>
+
+</body>
+</html>
