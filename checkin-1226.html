@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Macaron Habit Tracker 180</title>
+    <link href="https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&family=Patrick+Hand&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-pink: #fff0f5;
+            --grid-line: #e6c8ca;
+            --card-bg: #FFF9F5;
+            --text-color: #5D4037;
+            --primary-pink: #FFDEE9;
+            --status-green: #B5EAD7;
+            --status-purple: #E0BBE4;
+            --status-empty: #eaeaea;
+        }
+
+        * { box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
+
+        body {
+            margin: 0; padding: 15px; /* 稍微减少外边距 */
+            font-family: 'Patrick Hand', cursive;
+            color: var(--text-color);
+            background-color: var(--bg-pink);
+            background-image:
+              linear-gradient(var(--grid-line) 1px, transparent 1px),
+              linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+            background-size: 20px 20px;
+            display: flex; justify-content: center;
+            min-height: 100vh;
+        }
+
+        .app-container {
+            width: 100%; max-width: 420px;
+            background: var(--card-bg);
+            border-radius: 20px; padding: 15px; /* 更加紧凑 */
+            box-shadow: 8px 8px 0px rgba(93, 64, 55, 0.05);
+            border: 3px solid #fff;
+            display: flex; flex-direction: column; gap: 15px;
+            position: relative;
+        }
+
+        h2 { margin: 0; text-align: center; font-family: 'Gaegu', cursive; font-size: 1.6rem; letter-spacing: 1px; }
+        h3 { font-size: 1rem; opacity: 0.8; margin: 0 0 8px 0; text-align: center; }
+
+        .status-bar { text-align: center; font-size: 0.75rem; color: #bbb; height: 1rem; margin-top: -5px; }
+
+        /* 心情区 */
+        .mood-section {
+            display: flex; justify-content: space-around;
+            padding-bottom: 12px;
+            border-bottom: 2px dashed var(--primary-pink);
+        }
+        .mood-btn {
+            font-size: 24px; cursor: pointer; background: none; border: none;
+            opacity: 0.4; filter: grayscale(0.6); transition: all 0.2s;
+        }
+        .mood-btn.active { opacity: 1; filter: grayscale(0); transform: scale(1.3); }
+
+        /* 习惯列表：双栏，字体调小 */
+        .habit-list {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 8px; /* 间距调小 */
+        }
+        .habit-item {
+            display: flex; align-items: center; justify-content: space-between;
+            background: white; padding: 8px 10px; border-radius: 10px;
+            box-shadow: 1px 2px 4px rgba(0,0,0,0.02);
+            cursor: pointer; transition: all 0.1s; border: 2px solid transparent;
+        }
+        .habit-item:hover { transform: translateY(-1px); border-color: var(--primary-pink); }
+        
+        .habit-text {
+            font-size: 0.95rem; /* 字体调小 */
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 85%;
+        }
+        .custom-checkbox {
+            width: 18px; height: 18px; border: 1.5px solid var(--primary-pink);
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0; transition: background 0.2s;
+        }
+        .habit-item.checked .custom-checkbox { background: var(--status-green); border-color: var(--status-green); }
+        .habit-item.checked .habit-text { text-decoration: line-through; opacity: 0.5; }
+        .check-icon { color: white; font-size: 10px; display: none; }
+        .habit-item.checked .check-icon { display: block; }
+
+        .card-panel {
+            background: rgba(255, 255, 255, 0.6); padding: 10px; border-radius: 12px; border: 1px solid white;
+        }
+
+        /* 180天热力图优化 */
+        .heatmap-grid {
+            display: grid;
+            /* 自动填充，格子非常小，适应180个 */
+            grid-template-columns: repeat(auto-fit, minmax(7px, 1fr));
+            gap: 2px; /* 极小间距 */
+            margin-top: 5px; justify-content: center;
+        }
+        .heat-cell {
+            aspect-ratio: 1/1; border-radius: 1px; background-color: var(--status-empty);
+        }
+
+        .weekly-stripe { display: flex; justify-content: space-between; padding: 0 10px; }
+        .day-column { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+        .day-label { font-size: 0.7rem; color: #aaa; }
+        .day-dot { width: 8px; height: 8px; border-radius: 50%; background-color: var(--status-empty); }
+
+        .fab-edit {
+            position: absolute; top: 15px; right: 15px;
+            width: 30px; height: 30px; background: white;
+            border-radius: 50%; box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            display: flex; justify-content: center; align-items: center;
+            cursor: pointer; font-size: 1rem; border: 1px solid #eee; z-index: 10;
+        }
+
+        /* 弹窗样式 (保持一致) */
+        .modal-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255, 255, 255, 0.98); z-index: 100; border-radius: 20px; display: none; flex-direction: column; padding: 20px; }
+        .manager-list { flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+        .manager-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: var(--bg-pink); border-radius: 8px; font-size: 0.9rem; }
+        .btn-add { background: var(--status-green); border: none; padding: 8px; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 10px; }
+        .loading-mask { position: absolute; top:0; left:0; width:100%; height:100%; background: rgba(255,255,255,0.8); z-index: 50; border-radius: 20px; display: flex; justify-content: center; align-items: center; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <div class="fab-edit" onclick="openManager()" title="Edit Habits">✏️</div>
+
+    <div>
+        <h2 id="current-date">Today</h2>
+        <div class="status-bar" id="sync-status">Ready</div>
+        <div class="mood-section" id="mood-container"></div>
+    </div>
+
+    <div class="habit-list" id="habit-list"></div>
+
+    <div class="card-panel">
+        <h3>Weekly Trace</h3>
+        <div class="weekly-stripe" id="weekly-stripe"></div>
+    </div>
+
+    <div class="card-panel">
+        <h3>180 Days Log</h3>
+        <div class="heatmap-grid" id="heatmap-grid"></div>
+    </div>
+
+    <div class="loading-mask" id="loading-mask">Syncing... ☁️</div>
+
+    <!-- 简单的管理面板 -->
+    <div class="modal-overlay" id="manager-modal">
+        <h3 style="margin-bottom:15px; text-align:left;">Manage Habits</h3>
+        <div class="manager-list" id="manager-list"></div>
+        <div style="margin-top:auto">
+            <input type="text" id="new-habit-input" placeholder="Name..." style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px;">
+            <button class="btn-add" onclick="addNewHabit()">+ Add New</button>
+            <button class="btn-add" onclick="closeManager()" style="background:#eee; margin-top:5px;">Close</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const CONFIG = {
+        BIN_ID: "694dff0f43b1c97be9057b5d",
+        API_KEY: "$2a$10$ZCtav3eUvsq6lxm97e.e8.9JHlS0p/6Qh4ELXFdlECtgFY/1L1mz6"
+    };
+
+    // 🟢 您的专属习惯列表 (硬编码默认值)
+    const TARGET_HABITS = [
+        '🛖 代码', '🎨 画画', 
+        '🧘 瑜伽', '🙇‍♀️ 日语', 
+        '🤽 阻力训练', '💖 记录生活', 
+        '🎀 身体保养', '🌕 冥想'
+    ];
+    
+    const MOODS = ['🤩', '😊', '😐', '😫', '😡'];
+    
+    let appData = {
+        habits: [...TARGET_HABITS], 
+        records: {}
+    };
+
+    const getTodayStr = () => {
+        const d = new Date();
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    };
+    const todayStr = getTodayStr();
+
+    // --- 云端同步 ---
+    const updateStatus = (msg) => document.getElementById('sync-status').innerText = msg;
+    const showLoading = (show) => document.getElementById('loading-mask').style.display = show ? 'flex' : 'none';
+
+    async function fetchCloudData() {
+        showLoading(true);
+        updateStatus("Syncing...");
+        try {
+            const res = await fetch(`https://api.jsonbin.io/v3/b/${CONFIG.BIN_ID}/latest`, {
+                headers: { 'X-Master-Key': CONFIG.API_KEY }
+            });
+            if(!res.ok) throw new Error("Net Error");
+            const json = await res.json();
+            
+            // 如果云端是空的，或者习惯列表为空，则强制使用您的默认列表
+            if(json.record && json.record.habits && json.record.habits.length > 0) {
+                appData.habits = json.record.habits;
+                appData.records = json.record.records || {};
+            } else {
+                // 初始化云端数据为您的默认列表
+                appData.habits = [...TARGET_HABITS];
+                saveToCloud(); // 立即回写
+            }
+
+            initTodayRecord();
+            renderAll();
+            updateStatus("Synced ✓");
+        } catch (e) {
+            console.error(e);
+            updateStatus("Offline Mode");
+            // 离线也使用默认列表
+            const local = localStorage.getItem('habit_180_backup');
+            if(local) {
+                appData = JSON.parse(local);
+            } else {
+                appData.habits = [...TARGET_HABITS];
+            }
+            initTodayRecord();
+            renderAll();
+        } finally {
+            showLoading(false);
+        }
+    }
+
+    async function saveToCloud() {
+        updateStatus("Saving...");
+        localStorage.setItem('habit_180_backup', JSON.stringify(appData));
+        try {
+            await fetch(`https://api.jsonbin.io/v3/b/${CONFIG.BIN_ID}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'X-Master-Key': CONFIG.API_KEY },
+                body: JSON.stringify(appData)
+            });
+            updateStatus("Saved ✓");
+        } catch (e) { updateStatus("Save Failed"); }
+    }
+
+    function initTodayRecord() {
+        if (!appData.records[todayStr]) appData.records[todayStr] = { mood: null, checks: [] };
+        // 动态对齐习惯长度
+        const currentLen = appData.habits.length;
+        const recordCheck = appData.records[todayStr].checks || [];
+        if (recordCheck.length < currentLen) {
+            for(let i = recordCheck.length; i < currentLen; i++) recordCheck.push(false);
+        } else if (recordCheck.length > currentLen) {
+            recordCheck.length = currentLen;
+        }
+        appData.records[todayStr].checks = recordCheck;
+    }
+
+    // --- 业务 ---
+    function toggleCheck(index) {
+        appData.records[todayStr].checks[index] = !appData.records[todayStr].checks[index];
+        renderHabitList(); renderVisuals(); saveToCloud();
+    }
+    function setMood(idx) { appData.records[todayStr].mood = idx; renderMood(); saveToCloud(); }
+    function addNewHabit() {
+        const val = document.getElementById('new-habit-input').value.trim();
+        if(val) {
+            appData.habits.push(val);
+            initTodayRecord();
+            document.getElementById('new-habit-input').value = '';
+            renderManagerList(); renderHabitList(); renderVisuals(); saveToCloud();
+        }
+    }
+    function deleteHabit(idx) {
+        if(confirm("Delete?")) {
+            appData.habits.splice(idx, 1);
+            if(appData.records[todayStr]) appData.records[todayStr].checks.splice(idx, 1);
+            renderManagerList(); renderHabitList(); renderVisuals(); saveToCloud();
+        }
+    }
+    function getDayStatus(dateStr) {
+        const rec = appData.records[dateStr];
+        if (!rec || !rec.checks || rec.checks.length===0) return 0;
+        const checked = rec.checks.filter(Boolean).length;
+        if(checked === 0) return 0;
+        return (checked === rec.checks.length) ? 2 : 1;
+    }
+
+    // --- 渲染 ---
+    function renderAll() {
+        document.getElementById('current-date').innerText = new Date().toLocaleDateString('en-US', {weekday:'long', month:'short', day:'numeric'});
+        renderMood(); renderHabitList(); renderVisuals();
+    }
+
+    function renderMood() {
+        const c = document.getElementById('mood-container'); c.innerHTML = '';
+        const m = appData.records[todayStr].mood;
+        MOODS.forEach((icon, i) => {
+            const b = document.createElement('button');
+            b.className = `mood-btn ${m===i?'active':''}`; b.innerText = icon;
+            b.onclick = () => setMood(i); c.appendChild(b);
+        });
+    }
+
+    function renderHabitList() {
+        const c = document.getElementById('habit-list'); c.innerHTML = '';
+        const checks = appData.records[todayStr].checks;
+        appData.habits.forEach((h, i) => {
+            const d = document.createElement('div');
+            d.className = `habit-item ${checks[i]?'checked':''}`;
+            d.onclick = () => toggleCheck(i);
+            d.innerHTML = `<span class="habit-text">${h}</span><div class="custom-checkbox"><span class="check-icon">✔</span></div>`;
+            c.appendChild(d);
+        });
+    }
+
+    function renderVisuals() {
+        // Weekly
+        const wb = document.getElementById('weekly-stripe'); wb.innerHTML = '';
+        const days = ['S','M','T','W','T','F','S'];
+        for(let i=6; i>=0; i--) {
+            const d = new Date(); d.setDate(d.getDate()-i);
+            const ds = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+            const st = getDayStatus(ds);
+            let col = '#eaeaea'; if(st===2) col='#B5EAD7'; if(st===1) col='#E0BBE4';
+            const el = document.createElement('div'); el.className='day-column';
+            el.innerHTML = `<div class="day-dot" style="background:${col}"></div><span class="day-label">${days[d.getDay()]}</span>`;
+            wb.appendChild(el);
+        }
+
+        // 180 Days Heatmap
+        const hb = document.getElementById('heatmap-grid'); hb.innerHTML = '';
+        for(let i=179; i>=0; i--) {
+            const d = new Date(); d.setDate(d.getDate()-i);
+            const ds = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+            const st = getDayStatus(ds);
+            let col = '#eaeaea'; if(st===2) col='#B5EAD7'; if(st===1) col='#E0BBE4';
+            const cell = document.createElement('div'); cell.className='heat-cell';
+            cell.style.background = col; cell.title = ds;
+            hb.appendChild(cell);
+        }
+    }
+
+    // Manager
+    function openManager() { renderManagerList(); document.getElementById('manager-modal').style.display='flex'; }
+    function closeManager() { document.getElementById('manager-modal').style.display='none'; }
+    function renderManagerList() {
+        const l = document.getElementById('manager-list'); l.innerHTML='';
+        appData.habits.forEach((h,i)=>{
+            const d=document.createElement('div'); d.className='manager-item';
+            d.innerHTML = `<span>${h}</span><span style="color:#ff6b6b;cursor:pointer" onclick="deleteHabit(${i})">×</span>`;
+            l.appendChild(d);
+        });
+    }
+
+    fetchCloudData();
+
+</script>
+
+</body>
+</html>
