@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Picnic Weather</title>
+    <link href="https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&family=Zeyada&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --grass-light: #8bc34a;
+            --grass-dark: #558b2f;
+            --mat-blue: #4fc3f7;
+            --mat-white: #e1f5fe;
+            --text-color: #546e7a;
+        }
+
+        * { box-sizing: border-box; user-select: none; }
+
+        body {
+            margin: 0; padding: 0; height: 100vh; width: 100%;
+            overflow: hidden;
+            display: flex; justify-content: center; align-items: center;
+            font-family: 'Gaegu', cursive;
+            background-color: #eee;
+        }
+
+        /* --- 场景容器 (自适应大小) --- */
+        .scene-container {
+            width: 100%; height: 100%;
+            position: relative;
+            background: linear-gradient(to bottom, #aed581, #7cb342); /* 草地渐变 */
+            overflow: hidden;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            cursor: pointer; /* 提示可点击 */
+        }
+
+        /* 噪点纹理 (模拟手绘/油画质感) */
+        .scene-container::before {
+            content: ""; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.15'/%3E%3C/svg%3E");
+            pointer-events: none; z-index: 1; mix-blend-mode: overlay;
+        }
+
+        /* --- 阴影区 --- */
+        .shadow-overlay {
+            position: absolute;
+            width: 120%; height: 60%;
+            background: radial-gradient(ellipse at center, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0) 70%);
+            bottom: 10%; left: -10%;
+            border-radius: 50%;
+            transform: rotate(-5deg);
+            z-index: 2;
+        }
+
+        /* --- 野餐垫 (蓝白格纹) --- */
+        .picnic-mat {
+            position: absolute;
+            bottom: 20%;
+            width: 40%; max-width: 200px; aspect-ratio: 4/3;
+            background-color: var(--mat-white);
+            background-image: 
+                linear-gradient(45deg, var(--mat-blue) 25%, transparent 25%, transparent 75%, var(--mat-blue) 75%, var(--mat-blue)),
+                linear-gradient(45deg, var(--mat-blue) 25%, transparent 25%, transparent 75%, var(--mat-blue) 75%, var(--mat-blue));
+            background-size: 20px 20px;
+            background-position: 0 0, 10px 10px;
+            transform: rotate(5deg) skewX(10deg);
+            box-shadow: 2px 5px 10px rgba(0,0,0,0.1);
+            border-radius: 2px;
+            z-index: 3;
+            opacity: 0.9;
+        }
+
+        /* --- 云朵 (作为信息载体) --- */
+        .cloud-container {
+            position: absolute;
+            top: 10%; 
+            width: 80%; max-width: 350px;
+            height: 40%;
+            z-index: 10;
+            display: flex; justify-content: center; align-items: center;
+            transition: transform 0.5s ease;
+        }
+        
+        .cloud-shape {
+            position: absolute; width: 100%; height: 100%;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 50% 50% 40% 40% / 60% 60% 40% 40%;
+            filter: blur(8px); /* 边缘柔化 */
+            box-shadow: 0 10px 30px rgba(255, 255, 255, 0.4);
+        }
+        
+        /* 云朵的纹理 */
+        .cloud-shape::after {
+            content: ""; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle at 30% 30%, white, transparent),
+                        radial-gradient(circle at 70% 40%, white, transparent);
+            border-radius: inherit;
+        }
+
+        /* --- 天气信息 (限制大小，不醒目) --- */
+        .weather-info {
+            position: relative; z-index: 20;
+            text-align: center; color: var(--text-color);
+            padding: 10px;
+            font-size: 1rem; /* 基础字体不大 */
+            opacity: 0; animation: fadeIn 1s forwards 0.5s;
+        }
+
+        .location-name {
+            font-family: 'Zeyada', cursive; /* 手写体 */
+            font-size: 1.4rem;
+            margin-bottom: 2px;
+            color: #78909c;
+        }
+
+        .weather-main {
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            margin: 5px 0;
+        }
+
+        .weather-icon { font-size: 1.8rem; } /* 图标稍微大一点点，但不过分 */
+        .temp-text { font-size: 1.2rem; font-weight: bold; } /* 温度适中 */
+
+        .date-text {
+            font-size: 0.9rem;
+            color: #90a4ae;
+            letter-spacing: 1px;
+        }
+
+        /* 提示点击 */
+        .tap-hint {
+            position: absolute; bottom: 10px;
+            font-size: 0.8rem; color: rgba(255,255,255,0.6);
+            animation: pulse 2s infinite; z-index: 5;
+        }
+
+        @keyframes fadeIn { to { opacity: 1; } }
+        @keyframes pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 0.8; } }
+
+        /* Loading */
+        .loading-spinner {
+            width: 20px; height: 20px; border: 2px solid #fff; border-top: 2px solid var(--text-color);
+            border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto;
+        }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+
+    </style>
+</head>
+<body>
+
+<div class="scene-container" onclick="getLocationAndWeather()">
+    <!-- 背景元素 -->
+    <div class="shadow-overlay"></div>
+    <div class="picnic-mat"></div>
+    
+    <!-- 顶部大云朵 -->
+    <div class="cloud-container">
+        <div class="cloud-shape"></div>
+        
+        <div class="weather-info" id="info-box">
+            <!-- 默认显示 -->
+            <div style="opacity: 0.6; font-size: 0.9rem;">
+                <div style="font-size:1.5rem; margin-bottom:5px;">☁️</div>
+                <div>Tap grass to<br>find weather</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="tap-hint" id="status-hint">Click screen to locate</div>
+</div>
+
+<script>
+    // 简单的 WMO 天气代码转换表
+    const weatherMap = {
+        0: '☀️', 1: '🌤️', 2: '⛅', 3: '☁️',
+        45: '🌫️', 48: '🌫️',
+        51: '🌧️', 53: '🌧️', 55: '🌧️',
+        61: '☔', 63: '☔', 65: '☔',
+        71: '❄️', 73: '❄️', 75: '❄️',
+        80: '🌦️', 81: '🌦️', 82: '⛈️',
+        95: '⛈️', 96: '⛈️', 99: '⛈️'
+    };
+
+    const statusHint = document.getElementById('status-hint');
+    const infoBox = document.getElementById('info-box');
+
+    // 获取当前日期
+    function getFormattedDate() {
+        const d = new Date();
+        const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        return `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+    }
+
+    // 核心逻辑
+    function getLocationAndWeather() {
+        statusHint.innerText = "Locating...";
+        infoBox.innerHTML = '<div class="loading-spinner"></div>';
+
+        if (!navigator.geolocation) {
+            showError("Browser not supported");
+            return;
+        }
+
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const lat = position.coords.latitude;
+                const lon = position.coords.longitude;
+                fetchWeather(lat, lon);
+            },
+            (error) => {
+                console.error(error);
+                showError("Location access denied");
+                // 默认加载东京作为演示，防止空白
+                fetchWeather(35.6895, 139.6917, "Tokyo (Default)"); 
+            }
+        );
+    }
+
+    async function fetchWeather(lat, lon, fallbackName) {
+        statusHint.innerText = "Fetching weather...";
+        try {
+            // 1. 获取天气数据 (Open-Meteo)
+            const weatherRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`);
+            const weatherData = await weatherRes.json();
+
+            // 2. 尝试获取地名 (反向地理编码 - 使用 OpenStreetMap 免费接口)
+            let locationName = fallbackName || "Unknown Loc";
+            if (!fallbackName) {
+                try {
+                    const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10`);
+                    const geoData = await geoRes.json();
+                    // 优先取城市，没有取区县
+                    locationName = geoData.address.city || geoData.address.town || geoData.address.village || geoData.address.county || "My Place";
+                } catch (e) {
+                    console.warn("Geo error", e);
+                    locationName = "Current Location";
+                }
+            }
+
+            renderUI(weatherData.current_weather, locationName);
+            statusHint.innerText = ""; // 清空提示
+
+        } catch (err) {
+            showError("Network Error");
+        }
+    }
+
+    function renderUI(data, location) {
+        const temp = Math.round(data.temperature);
+        const icon = weatherMap[data.weathercode] || '🌈';
+        const dateStr = getFormattedDate();
+
+        // 这里的 HTML 结构是根据"不要过分醒目"的要求设计的
+        // 字体较小，颜色柔和
+        infoBox.innerHTML = `
+            <div class="location-name">${location}</div>
+            <div class="weather-main">
+                <span class="weather-icon">${icon}</span>
+                <span class="temp-text">${temp}°C</span>
+            </div>
+            <div class="date-text">${dateStr}</div>
+        `;
+    }
+
+    function showError(msg) {
+        infoBox.innerHTML = `<div style="color:#ef9a9a; font-size:0.9rem;">${msg}</div>`;
+        statusHint.innerText = "Click to retry";
+    }
+
+    // 初始化时也可以尝试自动加载一次（但在Notion中通常会被拦截，所以主要靠点击）
+    // getLocationAndWeather(); 
+
+</script>
+
+</body>
+</html>
