@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cloud Stationery Dashboard</title>
+    <!-- 引入多种手写字体 -->
+    <link href="https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&family=Long+Cang&family=Patrick+Hand&family=Zeyada&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-desk: #f4f4f6;
+            --drawer-color: #6d6875;
+            --text-dark: #4a4a4a;
+        }
+
+        * { box-sizing: border-box; outline: none; -webkit-tap-highlight-color: transparent; }
+
+        body {
+            margin: 0; padding: 20px;
+            background-color: var(--bg-desk);
+            font-family: 'Patrick Hand', sans-serif;
+            color: var(--text-dark);
+            height: 100vh;
+            display: flex; flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* --- 核心网格布局 --- */
+        .grid-container {
+            display: grid;
+            /* 响应式网格 */
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 15px;
+            padding-bottom: 60px;
+            overflow-y: auto; flex-grow: 1;
+            scrollbar-width: none; 
+        }
+        .grid-container::-webkit-scrollbar { display: none; }
+
+        /* --- 通用便签卡片 --- */
+        .pad-item {
+            aspect-ratio: 3/4;
+            padding: 15px;
+            border-radius: 4px;
+            box-shadow: 2px 4px 8px rgba(0,0,0,0.08);
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            position: relative; overflow: hidden;
+            display: flex; flex-direction: column;
+        }
+        .pad-item:hover { transform: translateY(-4px); box-shadow: 4px 8px 12px rgba(0,0,0,0.12); z-index: 2; }
+
+        .pad-content {
+            font-size: 1.1rem; line-height: 1.4; flex-grow: 1;
+            overflow: hidden; word-wrap: break-word; white-space: pre-wrap;
+        }
+
+        .pad-empty-hint {
+            color: rgba(0,0,0,0.3); text-align: center;
+            margin-top: 50%; transform: translateY(-50%);
+            font-size: 1.4rem; font-family: 'Gaegu', cursive;
+            pointer-events: none;
+        }
+
+        /* --- 8种纸张风格 (CSS Art) --- */
+        /* 1. 粉色光晕 */
+        .style-pink-aura {
+            background: radial-gradient(circle at center, #ffe6f2 0%, #fff0f5 40%, #ffffff 100%);
+            border: 1px solid #ffe6f2; font-family: 'Zeyada', cursive; font-size: 1.3rem;
+        }
+        /* 2. 薄荷绿条纹 */
+        .style-mint-stripe {
+            background-color: #e8f5e9;
+            background-image: repeating-linear-gradient(90deg, transparent, transparent 19px, #c8e6c9 20px);
+            font-family: 'Gaegu', cursive;
+        }
+        /* 3. 蓝色云朵 */
+        .style-blue-cloud {
+            background: radial-gradient(circle at 20% 20%, #e3f2fd, transparent 40%),
+                        radial-gradient(circle at 80% 80%, #bbdefb, transparent 40%), #f0f8ff;
+            font-family: 'Patrick Hand', cursive;
+        }
+        /* 4. To Do List */
+        .style-todo {
+            background: #e8f6e9; background-image: radial-gradient(#a5d6a7 15%, transparent 16%); background-size: 20px 20px;
+        }
+        .style-todo::before {
+            content: "TO THE LIST"; display: block; background: #d7ccc8; color: white;
+            text-align: center; padding: 4px; margin: -15px -15px 10px -15px; font-size: 0.8rem; letter-spacing: 1px;
+        }
+        /* 5. 菱形格纹 */
+        .style-plaid {
+            background-color: #fff;
+            background-image: linear-gradient(45deg, #f8bbd0 25%, transparent 25%, transparent 75%, #f8bbd0 75%, #f8bbd0),
+                              linear-gradient(45deg, #f8bbd0 25%, transparent 25%, transparent 75%, #f8bbd0 75%, #f8bbd0);
+            background-size: 40px 40px; background-position: 0 0, 20px 20px; opacity: 0.9;
+        }
+        .style-plaid .pad-content { background: rgba(255,255,255,0.85); padding: 5px; border-radius: 4px; }
+        /* 6. 乐谱线 */
+        .style-music {
+            background-color: #fff; background-image: repeating-linear-gradient(transparent, transparent 19px, #e0e0e0 20px);
+            font-family: 'Long Cang', cursive; font-size: 1.3rem;
+        }
+        /* 7. 英文本 */
+        .style-english {
+            background-color: #fff; background-image: linear-gradient(#ffcdd2 1px, transparent 1px);
+            background-size: 100% 25px; line-height: 25px !important;
+        }
+        /* 8. 绿色方格 */
+        .style-grid-green {
+            background-color: #f1f8e9;
+            background-image: linear-gradient(#c5e1a5 1px, transparent 1px), linear-gradient(90deg, #c5e1a5 1px, transparent 1px);
+            background-size: 15px 15px;
+        }
+
+        /* --- 底部抽屉 --- */
+        .drawer-bar {
+            position: fixed; bottom: 0; left: 0; right: 0; height: 50px;
+            background: var(--drawer-color); color: white;
+            display: flex; justify-content: center; align-items: center; cursor: pointer;
+            border-top-left-radius: 15px; border-top-right-radius: 15px;
+            font-family: 'Gaegu', cursive; font-size: 1.4rem; transition: height 0.3s; z-index: 10;
+        }
+        .drawer-bar:hover { height: 60px; }
+
+        /* --- 模态框 --- */
+        .modal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255,255,255,0.9); z-index: 100;
+            display: none; justify-content: center; align-items: center;
+        }
+        .modal.active { display: flex; animation: fadeIn 0.2s; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        .editor-card {
+            width: 90%; max-width: 500px; height: 70vh; background: white;
+            padding: 20px; border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            display: flex; flex-direction: column; border: 2px solid #eee;
+        }
+
+        textarea {
+            flex-grow: 1; border: none; resize: none; font-family: inherit; font-size: 1.3rem;
+            margin-bottom: 15px; color: #333; background: transparent;
+        }
+
+        .editor-actions { display: flex; justify-content: space-between; gap: 10px;}
+
+        .btn {
+            border: none; padding: 10px 18px; border-radius: 20px; cursor: pointer;
+            font-family: 'Gaegu', cursive; font-size: 1.1rem; font-weight: bold; transition: all 0.2s;
+        }
+        .btn:hover { transform: scale(1.05); }
+
+        .btn-save { background: #B5EAD7; color: #444; flex-grow: 1;}
+        .btn-archive { background: #A0C4FF; color: white; }
+        .btn-cancel { background: #eee; color: #888; }
+        .btn-delete { background: #FFB7B2; color: white; }
+
+        /* Loading */
+        .loading-overlay {
+            position: absolute; top:0; left:0; width:100%; height:100%;
+            background: rgba(244, 244, 246, 0.9); z-index: 500;
+            display: flex; justify-content: center; align-items: center;
+            font-size: 1.5rem; color: #888;
+        }
+        
+        /* 归档列表 */
+        .archive-list-container {
+            width: 90%; max-width: 500px; height: 80vh; background: white;
+            border-radius: 12px; padding: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            display: flex; flex-direction: column;
+        }
+        .archive-items { flex-grow: 1; overflow-y: auto; margin-top: 10px; }
+        .archive-row {
+            padding: 15px; border-bottom: 1px dashed #eee; display: flex; justify-content: space-between; align-items: center;
+        }
+        .archive-row:hover { background: #f9f9f9; }
+
+    </style>
+</head>
+<body>
+
+<script>
+    // ============================================
+    // 🟢 云端配置 (已填入)
+    // ============================================
+    const CONFIG = {
+        BIN_ID: "694df90bd0ea881f404093e4",
+        API_KEY: "$2a$10$ZCtav3eUvsq6lxm97e.e8.9JHlS0p/6Qh4ELXFdlECtgFY/1L1mz6"
+    };
+    // ============================================
+</script>
+
+<!-- 核心网格：固定 8 个便签位 -->
+<div class="grid-container">
+    <div class="pad-item style-pink-aura" onclick="openEditor(0)"></div>
+    <div class="pad-item style-mint-stripe" onclick="openEditor(1)"></div>
+    <div class="pad-item style-blue-cloud" onclick="openEditor(2)"></div>
+    <div class="pad-item style-todo" onclick="openEditor(3)"></div>
+    <div class="pad-item style-plaid" onclick="openEditor(4)"></div>
+    <div class="pad-item style-music" onclick="openEditor(5)"></div>
+    <div class="pad-item style-english" onclick="openEditor(6)"></div>
+    <div class="pad-item style-grid-green" onclick="openEditor(7)"></div>
+</div>
+
+<!-- 底部收纳 -->
+<div class="drawer-bar" onclick="openArchiveDrawer()">
+    📂 Archive Drawer
+</div>
+
+<!-- Loading 提示 -->
+<div class="loading-overlay" id="loading-overlay">
+    Loading your desk... ☁️
+</div>
+
+<!-- 编辑器弹窗 (Active Pad) -->
+<div class="modal" id="editor-modal">
+    <div class="editor-card" id="editor-card">
+        <textarea id="note-input" placeholder="Write Here..."></textarea>
+        <div class="editor-actions">
+            <!-- 左侧：取消 -->
+            <button class="btn btn-cancel" onclick="closeEditor()">Cancel</button>
+            <!-- 右侧：归档 和 保存 -->
+            <button class="btn btn-archive" onclick="archiveCurrent()">Archive</button>
+            <button class="btn btn-save" onclick="saveCurrent()">Save</button>
+        </div>
+    </div>
+</div>
+
+<!-- 归档列表弹窗 (Archive Drawer) -->
+<div class="modal" id="archive-modal">
+    <div class="archive-list-container">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <h2 style="margin:0; font-family:'Gaegu';">🗃️ Archived Notes</h2>
+            <button class="btn btn-cancel" onclick="closeArchiveDrawer()">Close</button>
+        </div>
+        <div class="archive-items" id="archive-list"></div>
+    </div>
+</div>
+
+<script>
+    // 数据模型：activePads (8个位置的数组), archives (归档数组)
+    let appData = {
+        activePads: new Array(8).fill(null),
+        archives: []
+    };
+    
+    let currentEditingIndex = -1;
+
+    // --- 云端同步逻辑 ---
+    
+    const showLoading = (show) => {
+        document.getElementById('loading-overlay').style.display = show ? 'flex' : 'none';
+    };
+
+    async function fetchCloudData() {
+        showLoading(true);
+        try {
+            const res = await fetch(`https://api.jsonbin.io/v3/b/${CONFIG.BIN_ID}/latest`, {
+                headers: { 'X-Master-Key': CONFIG.API_KEY }
+            });
+            if(!res.ok) throw new Error("Net Error");
+            const json = await res.json();
+            
+            // 数据合并逻辑
+            if (json.record && json.record.activePads) {
+                appData = json.record;
+            }
+            renderGrid();
+        } catch (e) {
+            console.error(e);
+            // 失败时尝试读取本地
+            const local = localStorage.getItem('stationery_backup');
+            if(local) {
+                appData = JSON.parse(local);
+                renderGrid();
+            }
+        } finally {
+            showLoading(false);
+        }
+    }
+
+    async function saveToCloud() {
+        // 先本地备份
+        localStorage.setItem('stationery_backup', JSON.stringify(appData));
+        
+        // 界面反馈 (可选)
+        const saveBtn = document.querySelector('.btn-save');
+        if(saveBtn) saveBtn.innerText = "Saving...";
+
+        try {
+            await fetch(`https://api.jsonbin.io/v3/b/${CONFIG.BIN_ID}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Master-Key': CONFIG.API_KEY
+                },
+                body: JSON.stringify(appData)
+            });
+            if(saveBtn) saveBtn.innerText = "Saved ✓";
+            setTimeout(() => { if(saveBtn) saveBtn.innerText = "Save"; }, 1500);
+        } catch (e) {
+            alert("Cloud Save Failed (Saved Locally)");
+            if(saveBtn) saveBtn.innerText = "Error";
+        }
+    }
+
+    // --- 渲染逻辑 ---
+
+    function renderGrid() {
+        const pads = document.querySelectorAll('.pad-item');
+        pads.forEach((pad, index) => {
+            const data = appData.activePads[index];
+            pad.innerHTML = ''; // Clear
+            
+            if (!data || !data.content) {
+                pad.innerHTML = `<div class="pad-empty-hint">Write Here</div>`;
+            } else {
+                pad.innerHTML = `<div class="pad-content">${data.content}</div>`;
+            }
+        });
+    }
+
+    // --- 交互逻辑：编辑器 ---
+
+    function openEditor(index) {
+        currentEditingIndex = index;
+        const modal = document.getElementById('editor-modal');
+        const textarea = document.getElementById('note-input');
+        
+        // 获取内容
+        const data = appData.activePads[index];
+        textarea.value = data ? data.content : '';
+
+        // 样式匹配
+        const padStyle = window.getComputedStyle(document.querySelectorAll('.pad-item')[index]);
+        textarea.style.fontFamily = padStyle.fontFamily;
+        
+        modal.classList.add('active');
+        textarea.focus();
+    }
+
+    function closeEditor() {
+        document.getElementById('editor-modal').classList.remove('active');
+        currentEditingIndex = -1;
+    }
+
+    // 保存逻辑：更新 appData -> 渲染 -> 上传
+    function saveCurrent() {
+        if (currentEditingIndex === -1) return;
+        const content = document.getElementById('note-input').value.trim();
+        
+        if (content) {
+            appData.activePads[currentEditingIndex] = {
+                content: content,
+                updatedAt: Date.now()
+            };
+        } else {
+            appData.activePads[currentEditingIndex] = null;
+        }
+        
+        renderGrid();
+        saveToCloud();
+        // 保存后通常不关闭窗口，方便继续写，或者您可以选择 closeEditor();
+        // 这里为了体验，保存后仅提示成功，不关闭
+    }
+
+    // 归档逻辑：移入 archives -> 清空当前位 -> 上传 -> 关闭窗口
+    function archiveCurrent() {
+        if (currentEditingIndex === -1) return;
+        const content = document.getElementById('note-input').value.trim();
+        
+        if (content) {
+            appData.archives.unshift({
+                id: Date.now(),
+                content: content,
+                archivedAt: Date.now()
+            });
+            appData.activePads[currentEditingIndex] = null; // 清空
+            
+            renderGrid();
+            saveToCloud();
+            closeEditor();
+        } else {
+            closeEditor(); //如果是空的直接关闭
+        }
+    }
+
+    // --- 交互逻辑：归档抽屉 ---
+
+    function openArchiveDrawer() {
+        renderArchiveList();
+        document.getElementById('archive-modal').classList.add('active');
+    }
+
+    function closeArchiveDrawer() {
+        document.getElementById('archive-modal').classList.remove('active');
+    }
+
+    function renderArchiveList() {
+        const list = document.getElementById('archive-list');
+        list.innerHTML = '';
+        
+        if (appData.archives.length === 0) {
+            list.innerHTML = '<div style="text-align:center; padding:20px; color:#999;">Empty drawer.</div>';
+            return;
+        }
+
+        appData.archives.forEach((item, idx) => {
+            const row = document.createElement('div');
+            row.className = 'archive-row';
+            
+            const dateStr = new Date(item.archivedAt).toLocaleDateString();
+            
+            row.innerHTML = `
+                <div style="display:flex; flex-direction:column; max-width:70%;">
+                    <span style="font-size:1.1rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${item.content}</span>
+                    <span style="font-size:0.8rem; color:#999;">${dateStr}</span>
+                </div>
+                <button class="btn btn-delete" onclick="deleteFromArchive(${idx})">Delete</button>
+            `;
+            list.appendChild(row);
+        });
+    }
+
+    // 删除逻辑：从 archives 移除 -> 重新渲染列表 -> 上传
+    function deleteFromArchive(idx) {
+        if(confirm("Permanently delete this note?")) {
+            appData.archives.splice(idx, 1);
+            renderArchiveList();
+            saveToCloud();
+        }
+    }
+
+    // 🚀 启动
+    fetchCloudData();
+
+</script>
+
+</body>
+</html>
