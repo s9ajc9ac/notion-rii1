@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sakura Cloud Gallery v7</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Noto+Serif+SC:wght@300;600&family=Playfair+Display:ital@0;1&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --sakura-light: #FCEFF3;
+            --sakura-pink: #F8C3CD;
+            --campus-red: #A64B56;
+            --paper-cream: #FDFBF7;
+            --star-red: #b71c1c; /* 星星图案颜色 */
+        }
+
+        * { box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
+
+        body {
+            margin: 0; padding: 0; height: 100vh;
+            display: flex; justify-content: center; align-items: center;
+            background-color: #fcfcfc;
+            font-family: 'Noto Serif SC', serif;
+            overflow: hidden;
+        }
+
+        /* --- 🔴 核心更新：内置 SVG 红色星星背景 --- */
+        body::before {
+            content: "";
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: -10;
+            opacity: 0.15; /* 调整透明度，不抢眼 */
+            /* 手绘风格星星图案 Base64 */
+            background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M30 5 L37 25 L58 25 L41 37 L48 58 L30 45 L12 58 L19 37 L2 25 L23 25 Z' fill='none' stroke='%23b71c1c' stroke-width='2' stroke-linejoin='round' stroke-linecap='round' transform='rotate(15 30 30)'/%3E%3C/svg%3E");
+            background-size: 60px 60px; /* 图案大小 */
+        }
+
+        .notebook-container {
+            width: 100%; max-width: 900px; height: 90vh;
+            background-color: var(--paper-cream); position: relative;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+            display: flex; overflow: hidden; border-radius: 4px 12px 12px 4px;
+        }
+
+        .spine {
+            width: 40px; height: 100%; background-color: var(--campus-red);
+            background-image: linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px);
+            background-size: 4px 100%; flex-shrink: 0; z-index: 100;
+            box-shadow: inset -5px 0 10px rgba(0,0,0,0.2);
+        }
+
+        .sakura-bg {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 0; opacity: 0.6;
+            background-image: radial-gradient(circle at 10% 20%, var(--sakura-pink) 2px, transparent 3px),
+                              radial-gradient(circle at 90% 80%, var(--sakura-pink) 2px, transparent 3px);
+            background-size: 100px 100px;
+        }
+
+        .main-view { flex-grow: 1; position: relative; display: flex; flex-direction: column; z-index: 1; overflow: hidden; }
+
+        .header {
+            padding: 20px 30px; display: flex; justify-content: space-between; align-items: flex-end;
+            border-bottom: 2px solid var(--sakura-light); background: rgba(253, 251, 247, 0.8);
+        }
+        .logo { font-family: 'Cinzel', serif; font-size: 2.2rem; color: var(--campus-red); font-weight: 700; }
+        .subtitle { font-family: 'Playfair Display', serif; color: var(--sakura-deep); font-style: italic; }
+
+        /* 画廊大厅 */
+        .gallery-hall {
+            flex-grow: 1; display: flex; align-items: center;
+            overflow-x: auto; overflow-y: hidden; padding: 0 40px;
+            cursor: grab; scrollbar-width: none;
+        }
+        .gallery-hall::-webkit-scrollbar { display: none; }
+        .gallery-hall:active { cursor: grabbing; }
+
+        .scroll-track { display: flex; align-items: center; gap: 20px; padding: 50px 20px; }
+
+        .month-card {
+            width: 160px; height: 220px; background: white; border: 1px solid #eee;
+            box-shadow: 5px 10px 15px rgba(0,0,0,0.05);
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            transition: transform 0.3s ease, box-shadow 0.3s ease; position: relative;
+            flex-shrink: 0; border-radius: 6px; cursor: pointer;
+        }
+        .month-card:nth-child(even) { transform: translateY(30px); }
+        .month-card:nth-child(odd) { transform: translateY(-30px); }
+        .month-card:hover { box-shadow: 8px 15px 25px rgba(166, 75, 86, 0.2); border: 1px solid var(--sakura-pink); z-index: 10; }
+        
+        .month-num { font-family: 'Cinzel', serif; font-size: 3rem; color: var(--campus-red); }
+        .month-name { font-size: 0.8rem; color: #999; letter-spacing: 2px; margin-top: 5px; text-transform: uppercase; }
+        .photo-count { position: absolute; bottom: 15px; font-size: 0.7rem; color: white; background: var(--sakura-deep); padding: 2px 10px; border-radius: 10px; }
+
+        /* 相册详情 */
+        .album-view {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: var(--paper-cream);
+            z-index: 200; display: none; flex-direction: column; animation: slideIn 0.3s ease-out;
+        }
+        @keyframes slideIn { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
+        .album-header {
+            padding: 15px 30px; display: flex; align-items: center; justify-content: space-between;
+            background: white; box-shadow: 0 2px 10px rgba(0,0,0,0.05); z-index: 10;
+        }
+        .back-btn {
+            background: var(--sakura-light); border: none; padding: 8px 20px; border-radius: 20px;
+            cursor: pointer; color: var(--campus-red); font-weight: bold; font-family: 'Cinzel';
+        }
+        .back-btn:hover { background: var(--sakura-pink); color: white; }
+        .album-title { font-family: 'Cinzel'; font-size: 1.5rem; color: var(--campus-red); }
+
+        /* 🔴 自适应瀑布流布局 */
+        .photo-masonry {
+            flex-grow: 1; padding: 30px; overflow-y: auto;
+            column-count: 3; column-gap: 20px; /* 默认3列 */
+        }
+        /* 响应式调整 */
+        @media (max-width: 700px) { .photo-masonry { column-count: 2; } }
+        @media (max-width: 450px) { .photo-masonry { column-count: 1; } }
+
+        .photo-item {
+            break-inside: avoid; margin-bottom: 20px; background: white;
+            padding: 8px 8px 25px 8px; box-shadow: 2px 4px 8px rgba(0,0,0,0.1);
+            transition: transform 0.3s; cursor: zoom-in; position: relative; border-radius: 2px;
+        }
+        .photo-item img { width: 100%; height: auto; display: block; object-fit: cover; }
+        .photo-item:hover { transform: scale(1.02); z-index: 5; box-shadow: 5px 10px 20px rgba(0,0,0,0.15); }
+
+        /* 删除按钮 (Hover时出现) */
+        .delete-btn {
+            position: absolute; top: -10px; right: -10px; width: 28px; height: 28px;
+            background: #ff6b6b; color: white; border-radius: 50%; text-align: center;
+            line-height: 28px; font-weight: bold; display: none; cursor: pointer; z-index: 20;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2); font-family: sans-serif;
+        }
+        .photo-item:hover .delete-btn { display: block; }
+
+        /* 🔴 悬浮上传按钮 (确保可见性) */
+        .fab-upload {
+            position: absolute; bottom: 30px; right: 30px;
+            width: 60px; height: 60px; background: var(--campus-red); color: white;
+            border-radius: 50%; display: none; /* 默认隐藏，JS控制显示 */
+            justify-content: center; align-items: center;
+            font-size: 32px; box-shadow: 0 4px 15px rgba(166, 75, 86, 0.4);
+            cursor: pointer; transition: transform 0.2s; z-index: 300;
+        }
+        .fab-upload:hover { transform: scale(1.1); background: var(--sakura-deep); }
+
+        /* Lightbox */
+        .lightbox-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95);
+            z-index: 1000; display: none; justify-content: center; align-items: center; cursor: zoom-out;
+        }
+        .lightbox-overlay.active { display: flex; animation: fadeIn 0.2s; }
+        .lightbox-img { max-width: 95%; max-height: 95%; border: 10px solid white; transform: scale(0.9); transition: transform 0.3s; }
+        .lightbox-overlay.active .lightbox-img { transform: scale(1); }
+
+        .loading-mask {
+            position: absolute; top:0; left:0; width:100%; height:100%;
+            background: rgba(253, 251, 247, 0.9); z-index: 500;
+            display: flex; justify-content: center; align-items: center;
+            font-size: 1.2rem; color: var(--campus-red); flex-direction: column; gap: 15px;
+        }
+        .spinner {
+            width: 40px; height: 40px; border: 4px solid #eee; border-top: 4px solid var(--campus-red);
+            border-radius: 50%; animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .status-toast {
+            position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+            background: var(--text-color); color: white; padding: 5px 15px;
+            border-radius: 20px; font-size: 0.8rem; z-index: 600; display: none;
+        }
+
+    </style>
+</head>
+<body>
+
+<div class="notebook-container">
+    <div class="spine"></div>
+    <div class="sakura-bg"></div>
+    <div class="status-toast" id="status-toast">Ready</div>
+
+    <div class="main-view">
+        <div class="header">
+            <div class="logo">Campus</div>
+            <div class="subtitle">Cloud Gallery</div>
+        </div>
+
+        <div class="gallery-hall" id="gallery-hall">
+            <div class="scroll-track" id="month-track"></div>
+        </div>
+
+        <div class="album-view" id="album-view">
+            <div class="album-header">
+                <button class="back-btn" onclick="closeAlbum()">❮ Back</button>
+                <div class="album-title" id="album-title-text"></div>
+                <div style="width: 80px;"></div>
+            </div>
+            
+            <div class="photo-masonry" id="photo-masonry"></div>
+            
+            <!-- 上传按钮 -->
+            <div class="fab-upload" id="fab-upload" onclick="document.getElementById('file-input').click()" title="Add Photo">+</div>
+        </div>
+
+        <div class="loading-mask" id="loading-mask">
+            <div class="spinner"></div>
+            <div id="loading-text">Loading Gallery...</div>
+        </div>
+    </div>
+</div>
+
+<div class="lightbox-overlay" id="lightbox" onclick="closeLightbox()">
+    <img src="" class="lightbox-img" id="lightbox-img">
+</div>
+
+<input type="file" id="file-input" accept="image/*" multiple style="display:none">
+
+<script>
+    // ============================================
+    // 🟢 您的云端配置
+    // ============================================
+    const CONFIG = {
+        JSONBIN_KEY: "$2a$10$BGU5ci4eEenXveyqNdIs/uNWFKkU6qrov62mlBYBr8kQKh9DCZG0i",
+        JSONBIN_ID: "694e065743b1c97be90585f4",
+        IMGBB_KEY: "c7d63dc66e820e5a1986f923d5d1e7d1"
+    };
+    // ============================================
+
+    const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    let galleryData = {};
+    let currentMonthIndex = null;
+
+    // --- 交互: 拖拽 ---
+    const slider = document.querySelector('.gallery-hall');
+    let isDown=false, startX, scrollLeft, isDragging=false;
+    slider.addEventListener('mousedown', (e) => { isDown=true; isDragging=false; startX=e.pageX-slider.offsetLeft; scrollLeft=slider.scrollLeft; });
+    slider.addEventListener('mouseleave', () => { isDown=false; });
+    slider.addEventListener('mouseup', () => { isDown=false; });
+    slider.addEventListener('mousemove', (e) => { 
+        if(!isDown) return; e.preventDefault(); 
+        const x=e.pageX-slider.offsetLeft; slider.scrollLeft=scrollLeft-(x-startX)*2; 
+        if(Math.abs(x-startX)>5) isDragging=true; 
+    });
+
+    const showLoading = (show, text) => {
+        const el = document.getElementById('loading-mask');
+        if(show) { el.style.display='flex'; if(text) document.getElementById('loading-text').innerText=text; }
+        else { el.style.display='none'; }
+    };
+
+    const showToast = (msg) => {
+        const t = document.getElementById('status-toast');
+        t.innerText = msg; t.style.display='block';
+        setTimeout(()=>t.style.display='none', 3000);
+    };
+
+    // --- 1. 读取云端 (仅启动时一次) ---
+    async function fetchUrls() {
+        showLoading(true, "Syncing Data...");
+        try {
+            const res = await fetch(`https://api.jsonbin.io/v3/b/${CONFIG.JSONBIN_ID}/latest`, {
+                headers: { 'X-Master-Key': CONFIG.JSONBIN_KEY }
+            });
+            if(!res.ok) {
+                console.warn("Fetch failed, starting fresh.");
+                galleryData = {}; 
+            } else {
+                const json = await res.json();
+                galleryData = json.record.gallery || json.record || {};
+            }
+            renderMonths();
+            showLoading(false);
+        } catch (e) {
+            console.error(e);
+            showLoading(false);
+            showToast("Network Error (Offline)");
+            galleryData = {}; 
+            renderMonths();
+        }
+    }
+
+    // --- 2. 保存云端 (仅修改时) ---
+    async function saveUrls() {
+        showToast("Saving Changes...");
+        try {
+            await fetch(`https://api.jsonbin.io/v3/b/${CONFIG.JSONBIN_ID}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'X-Master-Key': CONFIG.JSONBIN_KEY },
+                body: JSON.stringify({ gallery: galleryData })
+            });
+            showToast("Saved ✓");
+        } catch (e) { showToast("Save Failed"); }
+    }
+
+    // --- 3. ImgBB 上传 ---
+    async function uploadToImgBB(file) {
+        const formData = new FormData();
+        formData.append("image", file);
+        const res = await fetch(`https://api.imgbb.com/1/upload?key=${CONFIG.IMGBB_KEY}`, {
+            method: "POST", body: formData
+        });
+        const json = await res.json();
+        if (json.success) return json.data.url;
+        else throw new Error("ImgBB Error");
+    }
+
+    // --- 业务逻辑 ---
+
+    document.getElementById('file-input').addEventListener('change', async (e) => {
+        if(currentMonthIndex === null) return;
+        const files = e.target.files;
+        if(files.length === 0) return;
+
+        showLoading(true, "Uploading...");
+        if(!galleryData[currentMonthIndex]) galleryData[currentMonthIndex] = [];
+
+        let changed = false;
+        for(let file of files) {
+            try {
+                const url = await uploadToImgBB(file);
+                galleryData[currentMonthIndex].push(url);
+                changed = true;
+            } catch (err) { alert("Upload error: " + err.message); }
+        }
+
+        if(changed) {
+            await saveUrls();
+            renderMasonry();
+            renderMonths();
+        }
+        showLoading(false);
+        e.target.value = '';
+    });
+
+    function deletePhoto(e, index) {
+        e.stopPropagation();
+        if(confirm("Delete photo?")) {
+            galleryData[currentMonthIndex].splice(index, 1);
+            renderMasonry();
+            renderMonths();
+            saveUrls();
+        }
+    }
+
+    // --- 渲染 ---
+
+    function renderMonths() {
+        const track = document.getElementById('month-track');
+        track.innerHTML = '';
+        MONTHS.forEach((name, index) => {
+            const count = galleryData[index] ? galleryData[index].length : 0;
+            const card = document.createElement('div');
+            card.className = 'month-card';
+            card.onclick = () => { if(!isDragging) openAlbum(index); };
+            card.innerHTML = `<div class="month-num">${index+1}</div><div class="month-name">${name}</div><div class="photo-count">${count}</div>`;
+            track.appendChild(card);
+        });
+    }
+
+    function openAlbum(index) {
+        currentMonthIndex = index;
+        document.getElementById('album-title-text').innerText = MONTHS[index];
+        renderMasonry();
+        document.getElementById('album-view').style.display = 'flex';
+        // 🔴 确保上传按钮显示
+        document.getElementById('fab-upload').style.display = 'flex';
+    }
+
+    function closeAlbum() {
+        document.getElementById('album-view').style.display = 'none';
+        document.getElementById('fab-upload').style.display = 'none';
+        currentMonthIndex = null;
+        renderMonths();
+    }
+
+    function renderMasonry() {
+        const container = document.getElementById('photo-masonry');
+        container.innerHTML = '';
+        const photos = galleryData[currentMonthIndex] || [];
+
+        if(photos.length === 0) {
+            container.innerHTML = '<div style="text-align:center;width:100%;color:#999;margin-top:50px;">Empty Album<br>Click + to Upload</div>';
+            return;
+        }
+
+        photos.forEach((src, idx) => {
+            const item = document.createElement('div');
+            item.className = 'photo-item';
+            // 随机旋转微调
+            const rot = (Math.random() - 0.5) * 3;
+            item.style.transform = `rotate(${rot}deg)`;
+            
+            item.onclick = () => openLightbox(src);
+            item.innerHTML = `<img src="${src}" loading="lazy"><div class="delete-btn" onclick="deletePhoto(event, ${idx})">×</div>`;
+            container.appendChild(item);
+        });
+    }
+
+    function openLightbox(src) { document.getElementById('lightbox-img').src = src; document.getElementById('lightbox').classList.add('active'); }
+    function closeLightbox() { document.getElementById('lightbox').classList.remove('active'); setTimeout(()=>document.getElementById('lightbox-img').src='',300); }
+
+    // 启动
+    fetchUrls();
+
+</script>
+</body>
+</html>
