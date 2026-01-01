@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vintage Diary</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Homemade+Apple&family=Courier+Prime&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --paper-bg: #eaddcf; /* 复古纸张色 */
+            --ink-color: #3e322b;
+            --line-color: #bcaaa4;
+            --cover-color: #5d4037;
+            --accent-red: #8d3e3e;
+        }
+
+        * { box-sizing: border-box; outline: none; }
+
+        body {
+            margin: 0; padding: 0; height: 100vh;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            background-color: #f2f0eb;
+            font-family: 'Courier Prime', monospace;
+            color: var(--ink-color);
+            overflow: hidden;
+        }
+
+        /* 桌面纹理 */
+        body::before {
+            content: ""; position: absolute; top:0; left:0; width:100%; height:100%;
+            background-image: radial-gradient(#d7ccc8 1px, transparent 1px);
+            background-size: 20px 20px; opacity: 0.5; z-index: -1;
+        }
+
+        /* --- 日记本主体 --- */
+        .notebook-container {
+            position: relative;
+            width: 800px; height: 550px;
+            perspective: 1500px;
+        }
+
+        .notebook {
+            width: 100%; height: 100%;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 0.5s ease;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+        }
+
+        /* 书脊 */
+        .spine-center {
+            position: absolute; left: 50%; top: 0; bottom: 0; width: 40px;
+            transform: translateX(-50%); background: #3e2723; z-index: 5;
+            border-radius: 2px;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+        }
+
+        /* 页面通用样式 */
+        .page {
+            position: absolute; top: 0; bottom: 0; width: 50%;
+            background-color: var(--paper-bg);
+            /* 纸张纹理滤镜 */
+            background-image: url("data:image/svg+xml,%3Csvg width='200' height='200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.06'/%3E%3C/svg%3E");
+            padding: 40px;
+            display: flex; flex-direction: column;
+            backface-visibility: hidden;
+        }
+
+        /* 左页 */
+        .page-left {
+            left: 0; border-radius: 5px 0 0 5px;
+            box-shadow: inset -15px 0 30px rgba(0,0,0,0.05);
+            border-right: 1px solid #d7ccc8;
+            transform-origin: right center;
+            z-index: 1;
+        }
+
+        /* 右页 */
+        .page-right {
+            right: 0; border-radius: 0 5px 5px 0;
+            box-shadow: inset 15px 0 30px rgba(0,0,0,0.05);
+            z-index: 1;
+        }
+
+        /* --- 翻页动画层 --- */
+        .flip-page {
+            position: absolute; top: 0; bottom: 0; width: 50%;
+            background-color: var(--paper-bg);
+            z-index: 100;
+            backface-visibility: hidden;
+            transform-style: preserve-3d;
+            transform-origin: left center;
+            transition: transform 0.6s cubic-bezier(0.645, 0.045, 0.355, 1);
+            pointer-events: none; /* 动画层不响应点击 */
+            display: none; /* 默认隐藏 */
+            box-shadow: 5px 0 15px rgba(0,0,0,0.1);
+        }
+
+        /* --- 左页内容 (Meta Info) --- */
+        .date-header {
+            font-family: 'Playfair Display', serif;
+            border-bottom: 2px solid var(--ink-color);
+            padding-bottom: 15px; margin-bottom: 30px;
+            text-align: center;
+        }
+        .day-num { font-size: 4rem; line-height: 1; font-weight: bold; color: var(--accent-red); display: block; }
+        .month-year { font-size: 1.2rem; text-transform: uppercase; letter-spacing: 2px; }
+        .weekday { font-family: 'Homemade Apple', cursive; font-size: 1.2rem; color: #666; margin-top: 5px; display: block;}
+
+        .meta-section { margin-bottom: 25px; }
+        .section-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 2px; color: #888; display: block; margin-bottom: 8px; }
+        
+        .mood-icons { display: flex; gap: 15px; justify-content: center; font-size: 1.5rem; cursor: pointer; }
+        .mood-opt { opacity: 0.3; transition: 0.2s; filter: grayscale(1); }
+        .mood-opt:hover { opacity: 0.7; }
+        .mood-opt.selected { opacity: 1; filter: grayscale(0); transform: scale(1.2); }
+
+        .keyword-input {
+            width: 100%; border: none; background: transparent;
+            border-bottom: 1px dashed var(--line-color);
+            font-family: 'Homemade Apple', cursive; font-size: 1.3rem; color: var(--ink-color);
+            text-align: center; padding: 5px;
+        }
+
+        /* --- 右页内容 (Main Text) --- */
+        .paper-lines {
+            flex-grow: 1; width: 100%; height: 100%;
+            position: relative;
+        }
+        .diary-input {
+            width: 100%; height: 100%;
+            border: none; background: transparent; resize: none;
+            font-family: 'Homemade Apple', cursive; font-size: 1.2rem; line-height: 30px;
+            color: var(--ink-color);
+            /* 制作信纸横线 */
+            background-image: repeating-linear-gradient(transparent, transparent 29px, var(--line-color) 30px);
+            background-attachment: local; /* 线条随文字滚动 */
+            padding-top: 2px;
+        }
+        .diary-input::placeholder { color: rgba(0,0,0,0.2); }
+
+        /* --- 控制按钮 --- */
+        .controls-area {
+            width: 800px; display: flex; justify-content: space-between; align-items: center;
+            margin-top: 20px;
+        }
+        
+        .nav-group { display: flex; gap: 10px; }
+        .action-group { display: flex; gap: 10px; }
+
+        .btn {
+            background: #fff; border: 1px solid #ccc; padding: 8px 15px; border-radius: 20px;
+            font-family: 'Courier Prime', monospace; font-size: 0.85rem; cursor: pointer;
+            transition: all 0.2s; display: flex; align-items: center; gap: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        .btn:active { transform: translateY(0); }
+        
+        .btn-primary { border-color: var(--accent-red); color: var(--accent-red); font-weight: bold; }
+        .btn-delete { color: #d32f2f; border-color: transparent; background: transparent; box-shadow: none; }
+        .btn-delete:hover { background: #ffebee; }
+
+        .status-text { font-size: 0.8rem; color: #888; margin-left: 10px; font-style: italic; }
+
+        /* 页码 */
+        .page-num { position: absolute; bottom: 15px; font-size: 0.8rem; color: #999; }
+        .page-left .page-num { left: 20px; }
+        .page-right .page-num { right: 20px; }
+
+    </style>
+</head>
+<body>
+
+<!-- 日记本容器 -->
+<div class="notebook-container">
+    <div class="notebook" id="notebook-el">
+        <div class="spine-center"></div>
+
+        <!-- 左页：元数据 -->
+        <div class="page page-left">
+            <div class="date-header">
+                <span class="day-num" id="display-day">01</span>
+                <span class="month-year" id="display-mon-year">JAN 2026</span>
+                <span class="weekday" id="display-weekday">Monday</span>
+            </div>
+
+            <div class="meta-section">
+                <span class="section-label">MOOD</span>
+                <div class="mood-icons" id="mood-selector">
+                    <span class="mood-opt" data-val="happy">☀️</span>
+                    <span class="mood-opt" data-val="calm">☕</span>
+                    <span class="mood-opt" data-val="sad">🌧️</span>
+                    <span class="mood-opt" data-val="angry">🔥</span>
+                    <span class="mood-opt" data-val="tired">💤</span>
+                </div>
+            </div>
+
+            <div class="meta-section">
+                <span class="section-label">HIGHLIGHT / TITLE</span>
+                <input type="text" class="keyword-input" id="input-title" placeholder="Summary of the day..." oninput="autoSave()">
+            </div>
+
+            <span class="page-num" id="page-indicator">Page 1</span>
+        </div>
+
+        <!-- 右页：正文 -->
+        <div class="page page-right">
+            <div class="paper-lines">
+                <textarea class="diary-input" id="input-content" placeholder="Dear Diary..." oninput="autoSave()"></textarea>
+            </div>
+            <span class="page-num" id="total-count">Total: 1</span>
+        </div>
+        
+        <!-- 动画辅助层 -->
+        <div class="flip-page" id="flip-layer"></div>
+    </div>
+</div>
+
+<!-- 底部控制栏 -->
+<div class="controls-area">
+    <div class="nav-group">
+        <button class="btn" onclick="changePage(-1)">❮ Prev</button>
+        <button class="btn" onclick="changePage(1)">Next ❯</button>
+        <button class="btn btn-primary" onclick="createNewEntry()">+ New Entry</button>
+    </div>
+    
+    <div style="display:flex; align-items:center;">
+        <span class="status-text" id="status-msg">Loaded from local</span>
+        <button class="btn btn-delete" onclick="deleteEntry()">🗑️</button>
+    </div>
+
+    <div class="action-group">
+        <button class="btn" onclick="syncToCloud()">☁️ Cloud Backup</button>
+    </div>
+</div>
+
+<script>
+    // ============================================
+    // ☁️ 配置区域 (请填入你的Key)
+    // ============================================
+    const CONFIG = {
+        // 为了安全建议使用新的 Bin，但用旧的也可以
+        BIN_ID: "694e065743b1c97be90585f4", 
+        API_KEY: "$2a$10$BGU5ci4eEenXveyqNdIs/uNWFKkU6qrov62mlBYBr8kQKh9DCZG0i"
+    };
+    // ============================================
+
+    // 数据模型
+    let diaryData = [];
+    let currentIndex = 0; // 当前显示的日记索引 (0 = 最新一篇)
+
+    // 创建新日记对象
+    const createEntry = () => {
+        const d = new Date();
+        return {
+            id: Date.now(),
+            date: d.toISOString(), // 存储标准时间
+            mood: "",
+            title: "",
+            content: ""
+        };
+    };
+
+    // --- 1. 核心逻辑 ---
+
+    async function init() {
+        // 优先加载本地
+        const local = localStorage.getItem('vintage_diary_v2');
+        if (local) {
+            diaryData = JSON.parse(local);
+            showStatus("Loaded local data");
+        } else {
+            // 本地没有，尝试云端 (首次使用)
+            await fetchFromCloud();
+        }
+
+        // 如果完全为空，创建一个
+        if (diaryData.length === 0) {
+            diaryData.push(createEntry());
+            localStorage.setItem('vintage_diary_v2', JSON.stringify(diaryData));
+        }
+
+        // 按时间倒序排列 (最新的在最前)
+        sortData();
+        renderUI();
+    }
+
+    function sortData() {
+        diaryData.sort((a, b) => new Date(b.date) - new Date(a.date));
+    }
+
+    function autoSave() {
+        // 从 UI 获取数据更新到当前对象
+        const entry = diaryData[currentIndex];
+        entry.title = document.getElementById('input-title').value;
+        entry.content = document.getElementById('input-content').value;
+        // mood 已经是实时更新的
+        
+        localStorage.setItem('vintage_diary_v2', JSON.stringify(diaryData));
+        showStatus("Saved locally");
+    }
+
+    // --- 2. 界面渲染 ---
+
+    function renderUI() {
+        if (diaryData.length === 0) return;
+        
+        // 修正索引越界
+        if (currentIndex < 0) currentIndex = 0;
+        if (currentIndex >= diaryData.length) currentIndex = diaryData.length - 1;
+
+        const entry = diaryData[currentIndex];
+        const dateObj = new Date(entry.date);
+
+        // 渲染日期
+        const months = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+        const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+        
+        document.getElementById('display-day').innerText = String(dateObj.getDate()).padStart(2, '0');
+        document.getElementById('display-mon-year').innerText = `${months[dateObj.getMonth()]} ${dateObj.getFullYear()}`;
+        document.getElementById('display-weekday').innerText = days[dateObj.getDay()];
+
+        // 渲染内容
+        document.getElementById('input-title').value = entry.title || "";
+        document.getElementById('input-content').value = entry.content || "";
+
+        // 渲染心情
+        document.querySelectorAll('.mood-opt').forEach(el => {
+            el.classList.remove('selected');
+            if (el.dataset.val === entry.mood) el.classList.add('selected');
+        });
+
+        // 渲染页码
+        document.getElementById('page-indicator').innerText = `Entry ${diaryData.length - currentIndex}`;
+        document.getElementById('total-count').innerText = `Total: ${diaryData.length}`;
+    }
+
+    // 心情选择绑定
+    document.querySelectorAll('.mood-opt').forEach(el => {
+        el.onclick = function() {
+            diaryData[currentIndex].mood = this.dataset.val;
+            renderUI(); // 刷新高亮
+            autoSave();
+        };
+    });
+
+    // --- 3. 翻页与操作 ---
+
+    function changePage(dir) {
+        // dir: 1 (Next/Older), -1 (Prev/Newer)
+        const nextIdx = currentIndex + dir;
+        
+        if (nextIdx < 0 || nextIdx >= diaryData.length) {
+            // 翻不动了
+            return; 
+        }
+
+        // 视觉动画模拟
+        const notebook = document.getElementById('notebook-el');
+        // 简单的倾斜动画表示翻页
+        notebook.style.transform = dir > 0 ? "rotateY(-5deg) translateX(-10px)" : "rotateY(5deg) translateX(10px)";
+        
+        setTimeout(() => {
+            currentIndex = nextIdx;
+            renderUI();
+            notebook.style.transform = "rotateY(0) translateX(0)";
+        }, 200);
+    }
+
+    function createNewEntry() {
+        // 如果最新的一篇是今天写的，且是空的，则不创建
+        const today = new Date().toDateString();
+        const latestDate = new Date(diaryData[0].date).toDateString();
+        
+        if (diaryData.length > 0 && today === latestDate && diaryData[0].content === "") {
+            showStatus("Today's page already exists!");
+            currentIndex = 0;
+            renderUI();
+            return;
+        }
+
+        diaryData.unshift(createEntry()); // 加到最前面
+        sortData();
+        currentIndex = 0;
+        localStorage.setItem('vintage_diary_v2', JSON.stringify(diaryData));
+        
+        // 动画
+        const notebook = document.getElementById('notebook-el');
+        notebook.style.transition = "none";
+        notebook.style.transform = "scale(0.98)";
+        setTimeout(() => {
+            notebook.style.transition = "transform 0.5s ease";
+            notebook.style.transform = "scale(1)";
+            renderUI();
+            showStatus("New page created");
+        }, 100);
+    }
+
+    function deleteEntry() {
+        if (confirm("Tear out this page permanently?")) {
+            diaryData.splice(currentIndex, 1);
+            if (diaryData.length === 0) diaryData.push(createEntry()); // 至少留一页
+            
+            localStorage.setItem('vintage_diary_v2', JSON.stringify(diaryData));
+            currentIndex = Math.min(currentIndex, diaryData.length - 1);
+            renderUI();
+            showStatus("Page deleted");
+        }
+    }
+
+    // --- 4. 云端同步 ---
+
+    async function syncToCloud() {
+        showStatus("Syncing to cloud...");
+        try {
+            await fetch(`https://api.jsonbin.io/v3/b/${CONFIG.BIN_ID}`, {
+                method: 'PUT',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-Master-Key': CONFIG.API_KEY
+                },
+                body: JSON.stringify({ diary: diaryData })
+            });
+            showStatus("Synced successfully ✓");
+        } catch (e) {
+            console.error(e);
+            showStatus("Cloud Error (Check Key/Net)");
+        }
+    }
+
+    async function fetchFromCloud() {
+        showStatus("Fetching cloud data...");
+        try {
+            const res = await fetch(`https://api.jsonbin.io/v3/b/${CONFIG.BIN_ID}/latest`, {
+                headers: { 'X-Master-Key': CONFIG.API_KEY }
+            });
+            if(res.ok) {
+                const json = await res.json();
+                if (json.record && json.record.diary) {
+                    diaryData = json.record.diary;
+                    localStorage.setItem('vintage_diary_v2', JSON.stringify(diaryData));
+                    renderUI();
+                    showStatus("Cloud data loaded");
+                }
+            }
+        } catch (e) {
+            showStatus("Offline mode");
+        }
+    }
+
+    function showStatus(msg) {
+        const el = document.getElementById('status-msg');
+        el.innerText = msg;
+        el.style.opacity = 1;
+        setTimeout(() => el.style.opacity = 0.5, 3000);
+    }
+
+    // 启动
+    init();
+
+</script>
+
+</body>
+</html>
